@@ -200,7 +200,7 @@
             @can('permission', 'view_pos')
             <li class="nav-item">
               <a href="{{ route('pos.index') }}" class="nav-link {{ request()->routeIs('pos.*') ? 'active' : '' }}">
-                <i class="nav-icon fas fa-cash-register"></i>
+                <i class="nav-icon fas fa-store"></i>
                 <p>Punto de Venta</p>
               </a>
             </li>

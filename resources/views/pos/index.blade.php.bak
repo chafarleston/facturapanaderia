@@ -299,24 +299,12 @@
         cursor: pointer;
         flex: 0 0 auto;
     }
-
-    /* Tabs multi-venta */
-    .sale-tabs { display: flex; background: #f0f0f0; border-bottom: 1px solid #ddd; flex-shrink: 0; overflow-x: auto; min-height: 38px; align-items: flex-end; }
-    .sale-tab { padding: 6px 12px; cursor: pointer; border-radius: 6px 6px 0 0; font-size: 12px; white-space: nowrap; display: flex; align-items: center; gap: 4px; border: 1px solid transparent; border-bottom: none; color: #666; margin: 0 1px; background: #e0e0e0; max-width: 180px; }
-    .sale-tab:hover { background: #d5d5d5; }
-    .sale-tab.active { background: #fff; color: #007bff; font-weight: bold; border-color: #ddd; }
-    .sale-tab .tab-total { font-size: 10px; color: #28a745; }
-    .sale-tab .close-tab { font-size: 14px; color: #999; margin-left: 2px; padding: 0 3px; line-height: 1; border-radius: 50%; }
-    .sale-tab .close-tab:hover { color: #dc3545; background: #f8d7da; }
-    .sale-tab-add { padding: 4px 10px; cursor: pointer; font-size: 16px; font-weight: bold; color: #28a745; border: 1px dashed #ccc; border-radius: 6px 6px 0 0; margin: 0 1px; background: transparent; border-bottom: none; line-height: 1; }
-    .sale-tab-add:hover { background: #d4edda; border-color: #28a745; }
 </style>
 @endpush
 
 @section('content')
 <div class="pos-container">
     <div class="categories-section">
-        <div class="sale-tabs" id="saleTabs"><div class="sale-tab-add" onclick="addTab()" title="Nueva venta">+</div></div>
         <div class="categories-header">
             <h5 class="panel-title" style="margin:0;"><i class="fas fa-th-large"></i> Seleccionar Categoria</h5>
         </div>
@@ -464,7 +452,6 @@
     <input type="hidden" name="payments_json" id="paymentsJson">
     <input type="hidden" name="items_json" id="itemsJson">
     <input type="hidden" name="total" id="totalInput">
-    <input type="hidden" name="sale_tab_id" id="saleTabId">
 </form>
 
 <div class="modal fade" id="successModal" tabindex="-1">
@@ -527,8 +514,7 @@
 
 @push('scripts')
 <script>
-// === MULTI-SALE STATE (localStorage) ===
-const STORAGE_KEY = 'pos_multisale_state';
+let saleItems = [];
 const igvPercent = {{ $mainCompany->getActiveIgvPercent() }};
 const allowSellWithoutStock = {{ $allowSellWithoutStock ? 'true' : 'false' }};
 const productsData = @json($products->where('estado', 'ACTIVO'));
@@ -536,185 +522,78 @@ const categoriesData = @json($categories);
 const customersData = @json($customers);
 const seriesData = @json($series);
 
-var appState = loadState();
-
-function defaultState() {
-    return {
-        sales: [{ id: 1, label: 'V-1', customer_id: null, customer_name: '', document_type: '03', payments: [{ method: 'EFECTIVO', amount: 0, reference: '' }], items: [] }],
-        activeId: 1,
-        nextId: 2
-    };
-}
-
-function loadState() {
-    try {
-        var raw = localStorage.getItem(STORAGE_KEY);
-        if (raw) {
-            var s = JSON.parse(raw);
-            if (s && s.sales && s.sales.length > 0 && s.activeId && s.nextId) return s;
-        }
-    } catch (e) {}
-    return defaultState();
-}
-
-function saveState() {
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(appState)); } catch (e) {}
-}
-
-function activeSale() {
-    for (var i = 0; i < appState.sales.length; i++) {
-        if (appState.sales[i].id === appState.activeId) return appState.sales[i];
+function searchCustomers(term) {
+    if (term.length < 2) {
+        document.getElementById('customerDropdown').style.display = 'none';
+        return;
     }
-    return appState.sales[0];
-}
-
-function switchTab(id) {
-    syncActiveSaleToDOM();
-    appState.activeId = id;
-    syncDOMToActiveSale();
-    renderTabs();
-    saveState();
-}
-
-function addTab() {
-    syncActiveSaleToDOM();
-    var max = 0;
-    appState.sales.forEach(function(s) {
-        var m = parseInt(s.label.replace('V-', '')) || 0;
-        if (m > max) max = m;
+    
+    const termLower = term.toLowerCase();
+    const results = customersData.filter(c => {
+        const nombreMatch = c.nombre && c.nombre.toLowerCase().includes(termLower);
+        const documentoMatch = c.documento_numero && c.documento_numero.includes(term);
+        return nombreMatch || documentoMatch;
     });
-    var today = new Date();
-    var ds = today.getFullYear() + ('0' + (today.getMonth() + 1)).slice(-2) + ('0' + today.getDate()).slice(-2);
-    var newSale = {
-        id: appState.nextId,
-        label: 'V-' + today.getFullYear().toString().slice(-2) + ('0' + (today.getMonth() + 1)).slice(-2) + ('0' + today.getDate()).slice(-2) + '-' + ('000' + (max + 1)).slice(-4),
-        customer_id: null,
-        customer_name: '',
-        document_type: '03',
-        payments: [{ method: 'EFECTIVO', amount: 0, reference: '' }],
-        items: []
-    };
-    appState.sales.push(newSale);
-    appState.activeId = newSale.id;
-    appState.nextId++;
-    syncDOMToActiveSale();
-    renderTabs();
-    saveState();
-}
-
-function removeTab(id) {
-    if (appState.sales.length <= 1) return;
-    var sale = appState.sales.find(function(s) { return s.id === id; });
-    if (sale && sale.items.length > 0) {
-        if (!confirm('¿Eliminar venta ' + sale.label + ' con ' + sale.items.reduce(function(c, i) { return c + i.quantity; }, 0) + ' items?')) return;
+    
+    if (results.length === 0) {
+        document.getElementById('customerDropdown').innerHTML = '<div class="customer-option"><span class="text-muted">Sin resultados</span></div>';
+        document.getElementById('customerDropdown').style.display = 'block';
+        return;
     }
-    appState.sales = appState.sales.filter(function(s) { return s.id !== id; });
-    if (appState.activeId === id) {
-        appState.activeId = appState.sales[appState.sales.length - 1].id;
-    }
-    syncDOMToActiveSale();
-    renderTabs();
-    saveState();
-}
-
-function syncActiveSaleToDOM() {
-    var s = activeSale();
-    s.customer_id = document.getElementById('customerId').value || null;
-    s.customer_name = document.getElementById('customerSearch').value;
-    s.document_type = document.getElementById('documentType').value;
-    s.payments = getPayments();
-}
-
-function syncDOMToActiveSale() {
-    var s = activeSale();
-    document.getElementById('customerId').value = s.customer_id || '';
-    document.getElementById('customerSearch').value = s.customer_name || '';
-    document.getElementById('documentType').value = s.document_type || '03';
-    updateSerieByType();
-    buildPaymentsFromArray(s.payments);
-    renderSaleItems();
-}
-
-function renderTabs() {
-    var container = document.getElementById('saleTabs');
-    var html = '';
-    appState.sales.forEach(function(s) {
-        var total = 0;
-        s.items.forEach(function(i) { total += i.price * i.quantity; });
-        var activeClass = s.id === appState.activeId ? ' active' : '';
-        var totalStr = total > 0 ? (' <span class="tab-total">S/ ' + total.toFixed(2) + '</span>') : '';
-        var closeBtn = (appState.sales.length > 1) ? ('<span class="close-tab" onclick="event.stopPropagation();removeTab(' + s.id + ')">&times;</span>') : '';
-        html += '<div class="sale-tab' + activeClass + '" onclick="switchTab(' + s.id + ')">' + s.label + totalStr + closeBtn + '</div>';
-    });
-    html += '<div class="sale-tab-add" onclick="addTab()" title="Nueva venta">+</div>';
-    container.innerHTML = html;
-}
-
-function buildPaymentsFromArray(pmts) {
-    var container = document.getElementById('paymentsContainer');
-    var p = pmts && pmts.length > 0 ? pmts : [{ method: 'EFECTIVO', amount: 0, reference: '' }];
-    var rowsHtml = '';
-    p.forEach(function(pmt, idx) {
-        var hideBtn = p.length === 1 ? ' style="display:none;"' : '';
-        rowsHtml += '<div class="payment-row" style="display: flex; gap: 5px; margin-bottom: 4px; align-items: center;">' +
-            '<select class="form-control form-control-sm payment-method" style="flex: 1.5;" onchange="syncActiveSaleToDOM(); updateAllPaymentAmounts();">' +
-                '<option value="EFECTIVO"' + (pmt.method === 'EFECTIVO' ? ' selected' : '') + '>EFECTIVO</option>' +
-                '<option value="TARJETA"' + (pmt.method === 'TARJETA' ? ' selected' : '') + '>TARJETA</option>' +
-                '<option value="TRANSFERENCIA"' + (pmt.method === 'TRANSFERENCIA' ? ' selected' : '') + '>TRANSFERENCIA</option>' +
-                '<option value="YAPE"' + (pmt.method === 'YAPE' ? ' selected' : '') + '>YAPE</option>' +
-                '<option value="PLIN"' + (pmt.method === 'PLIN' ? ' selected' : '') + '>PLIN</option>' +
-            '</select>' +
-            '<input type="text" class="form-control form-control-sm payment-amount" placeholder="Monto" style="flex: 1;" oninput="syncActiveSaleToDOM(); updatePaymentTotals();" value="' + (pmt.amount || 0).toFixed(2) + '">' +
-            '<input type="text" class="form-control form-control-sm payment-ref" placeholder="Ref" style="flex: 0.8;" value="' + (pmt.reference || '') + '" oninput="syncActiveSaleToDOM();">' +
-            '<button type="button" class="btn btn-sm btn-danger remove-payment-btn" onclick="removePayment(this)" style="padding: 2px 6px;' + hideBtn + '" title="Quitar pago">&times;</button>' +
+    
+    let html = '';
+    results.slice(0, 10).forEach(customer => {
+        html += '<div class="customer-option" onclick="selectCustomer(' + customer.id + ', \'' + customer.nombre.replace(/'/g, "\\'") + '\')">' +
+            '<div class="customer-option-name">' + customer.nombre + '</div>' +
+            '<div class="customer-option-doc">' + (customer.documento_tipo || '') + ': ' + (customer.documento_numero || '') + '</div>' +
         '</div>';
     });
-    container.innerHTML = rowsHtml;
-    updatePaymentTotals();
+    
+    document.getElementById('customerDropdown').innerHTML = html;
+    document.getElementById('customerDropdown').style.display = 'block';
 }
 
-function updateSerieByType() {
-    var docType = document.getElementById('documentType').value;
-    var typePrefixes = { '01': 'F', '03': 'B', 'NV': 'NV' };
-    var defaultSerie = (typePrefixes[docType] || 'F') + '001';
-    if (seriesData && seriesData.length > 0) {
-        var matchingSerie = seriesData.find(function(s) { return s.tipo_documento === docType; });
-        if (matchingSerie && matchingSerie.serie) defaultSerie = matchingSerie.serie;
-    }
-    document.getElementById('serieDisplay').value = defaultSerie;
-}
-
-// === SALE ITEMS (uses activeSale()) ===
 function selectCustomer(id, nombre) {
     document.getElementById('customerId').value = id;
     document.getElementById('customerSearch').value = nombre;
     document.getElementById('customerDropdown').style.display = 'none';
-    syncActiveSaleToDOM();
-    saveState();
 }
 
-function searchCustomers(term) {
-    if (term.length < 2) { document.getElementById('customerDropdown').style.display = 'none'; return; }
-    const termLower = term.toLowerCase();
-    const results = customersData.filter(c => { return (c.nombre && c.nombre.toLowerCase().includes(termLower)) || (c.documento_numero && c.documento_numero.includes(term)); });
-    if (results.length === 0) { document.getElementById('customerDropdown').innerHTML = '<div class="customer-option"><span class="text-muted">Sin resultados</span></div>'; document.getElementById('customerDropdown').style.display = 'block'; return; }
-    var html = '';
-    results.slice(0, 10).forEach(function(customer) {
-        html += '<div class="customer-option" onclick="selectCustomer(' + customer.id + ', \'' + customer.nombre.replace(/'/g, "\\'") + '\')"><div class="customer-option-name">' + customer.nombre + '</div><div class="customer-option-doc">' + (customer.documento_tipo || '') + ': ' + (customer.documento_numero || '') + '</div></div>';
-    });
-    document.getElementById('customerDropdown').innerHTML = html;
-    document.getElementById('customerDropdown').style.display = 'block';
+function updateSerieByType() {
+    const docType = document.getElementById('documentType').value;
+    const typePrefixes = { '01': 'F', '03': 'B', 'NV': 'NV' };
+    const prefix = typePrefixes[docType] || 'F';
+    let defaultSerie = prefix + '001';
+    
+    if (seriesData && seriesData.length > 0) {
+        const matchingSerie = seriesData.find(s => s.tipo_documento === docType);
+        if (matchingSerie && matchingSerie.serie) {
+            defaultSerie = matchingSerie.serie;
+        }
+    }
+    
+    document.getElementById('serieDisplay').value = defaultSerie;
 }
 
 function showProducts(categoryId, categoryName) {
     document.getElementById('categoriesGrid').style.display = 'none';
     document.getElementById('productsSection').style.display = 'flex';
     document.getElementById('categoryTitle').textContent = categoryName;
+    
     const products = productsData.filter(p => p.category_id === categoryId);
-    if (products.length === 0) { document.getElementById('productsGrid').innerHTML = '<div class="empty-sale"><i class="fas fa-box-open"></i><p>Sin productos</p></div>'; return; }
-    var html = '';
-    products.forEach(function(product) {
-        html += '<div class="product-card" onclick="addToSale(' + product.id + ')"><div class="product-name">' + product.descripcion + '</div><div class="product-price">S/ ' + parseFloat(product.precio).toFixed(2) + '</div><div class="product-stock">Stock: ' + product.stock + '</div></div>';
+    
+    if (products.length === 0) {
+        document.getElementById('productsGrid').innerHTML = '<div class="empty-sale"><i class="fas fa-box-open"></i><p>Sin productos</p></div>';
+        return;
+    }
+    
+    let html = '';
+    products.forEach(product => {
+        html += '<div class="product-card" onclick="addToSale(' + product.id + ')">' +
+            '<div class="product-name">' + product.descripcion + '</div>' +
+            '<div class="product-price">S/ ' + parseFloat(product.precio).toFixed(2) + '</div>' +
+            '<div class="product-stock">Stock: ' + product.stock + '</div>' +
+        '</div>';
     });
     document.getElementById('productsGrid').innerHTML = html;
 }
@@ -724,91 +603,145 @@ function searchPOSProducts(query) {
     var categoriesGrid = document.getElementById('categoriesGrid');
     var productsSection = document.getElementById('productsSection');
     var categoryTitle = document.getElementById('categoryTitle');
-    if (!query) { categoriesGrid.style.display = 'grid'; productsSection.style.display = 'none'; return; }
+
+    if (!query) {
+        categoriesGrid.style.display = 'grid';
+        productsSection.style.display = 'none';
+        return;
+    }
+
     var isNumeric = /^\d+$/.test(query);
     var q = query.toLowerCase();
-    var results = productsData.filter(function(p) { return isNumeric ? ((p.codigo_barras && p.codigo_barras.includes(q)) || (p.codigo && p.codigo.toLowerCase().includes(q))) : (p.descripcion && p.descripcion.toLowerCase().includes(q)); });
+
+    var results = productsData.filter(function(p) {
+        if (isNumeric) {
+            return (p.codigo_barras && p.codigo_barras.includes(q)) ||
+                   (p.codigo && p.codigo.toLowerCase().includes(q));
+        }
+        return p.descripcion && p.descripcion.toLowerCase().includes(q);
+    });
+
     categoriesGrid.style.display = 'none';
     productsSection.style.display = 'flex';
     categoryTitle.textContent = 'Resultados: ' + results.length;
+
     var grid = document.getElementById('productsGrid');
-    if (results.length === 0) { grid.innerHTML = '<div class="empty-sale"><i class="fas fa-box-open"></i><p>Sin resultados</p></div>'; return; }
+    if (results.length === 0) {
+        grid.innerHTML = '<div class="empty-sale"><i class="fas fa-box-open"></i><p>Sin resultados</p></div>';
+        return;
+    }
+
     var html = '';
-    results.forEach(function(product) { html += '<div class="product-card" onclick="addToSale(' + product.id + ')"><div class="product-name">' + product.descripcion + '</div><div class="product-price">S/ ' + parseFloat(product.precio).toFixed(2) + '</div><div class="product-stock">Stock: ' + product.stock + '</div></div>'; });
+    results.forEach(function(product) {
+        html += '<div class="product-card" onclick="addToSale(' + product.id + ')">' +
+            '<div class="product-name">' + product.descripcion + '</div>' +
+            '<div class="product-price">S/ ' + parseFloat(product.precio).toFixed(2) + '</div>' +
+            '<div class="product-stock">Stock: ' + product.stock + '</div>' +
+        '</div>';
+    });
     grid.innerHTML = html;
 }
 
-function backToCategories() { document.getElementById('categoriesGrid').style.display = 'grid'; document.getElementById('productsSection').style.display = 'none'; }
+function backToCategories() {
+    document.getElementById('categoriesGrid').style.display = 'grid';
+    document.getElementById('productsSection').style.display = 'none';
+}
 
-// === SALE ITEMS (uses activeSale()) ===
 function addToSale(productId) {
     const product = productsData.find(p => p.id === productId);
     if (!product) return;
-    if (!product.is_composite && product.stock <= 0 && !allowSellWithoutStock) { showError('Sin stock'); return; }
-    var sale = activeSale();
-    const existingItem = sale.items.find(item => item.id === productId);
+    
+    if (!product.is_composite && product.stock <= 0 && !allowSellWithoutStock) {
+        showError('Sin stock');
+        return;
+    }
+    
+    const existingItem = saleItems.find(item => item.id === productId);
     if (existingItem) {
         if (product.is_composite || allowSellWithoutStock || existingItem.quantity < product.stock) {
             existingItem.quantity++;
-        } else { showError('Stock insuficiente'); return; }
+        } else {
+            showError('Stock insuficiente');
+            return;
+        }
     } else {
-        sale.items.push({ id: product.id, name: product.descripcion, price: parseFloat(product.precio), quantity: 1, stock: product.stock, is_composite: product.is_composite || false });
+        saleItems.push({
+            id: product.id,
+            name: product.descripcion,
+            price: parseFloat(product.precio),
+            quantity: 1,
+            stock: product.stock,
+            is_composite: product.is_composite || false
+        });
     }
+    
     renderSaleItems();
-    renderTabs();
-    saveState();
 }
 
 function decreaseQty(productId) {
-    var sale = activeSale();
-    const item = sale.items.find(item => item.id === productId);
-    if (item) { if (item.quantity > 1) { item.quantity--; } else { sale.items = sale.items.filter(i => i.id !== productId); } }
+    const item = saleItems.find(item => item.id === productId);
+    if (item) {
+        if (item.quantity > 1) {
+            item.quantity--;
+        } else {
+            saleItems = saleItems.filter(i => i.id !== productId);
+        }
+    }
     renderSaleItems();
-    renderTabs();
-    saveState();
 }
 
 function increaseQty(productId) {
-    var sale = activeSale();
-    const item = sale.items.find(item => item.id === productId);
-    if (item && (item.is_composite || allowSellWithoutStock || item.quantity < item.stock)) { item.quantity++; renderSaleItems(); renderTabs(); saveState(); }
+    const item = saleItems.find(item => item.id === productId);
+    if (item && (item.is_composite || allowSellWithoutStock || item.quantity < item.stock)) {
+        item.quantity++;
+        renderSaleItems();
+    }
 }
 
 function removeItem(productId) {
-    var sale = activeSale();
-    sale.items = sale.items.filter(i => i.id !== productId);
+    saleItems = saleItems.filter(i => i.id !== productId);
     renderSaleItems();
-    renderTabs();
-    saveState();
 }
 
 function cancelSale() {
-    var sale = activeSale();
-    if (sale.items.length > 0 && confirm('¿Cancelar venta ' + sale.label + '?')) { sale.items = []; sale.customer_id = null; sale.customer_name = ''; sale.payments = [{ method: 'EFECTIVO', amount: 0, reference: '' }]; syncDOMToActiveSale(); renderTabs(); saveState(); }
+    if (saleItems.length > 0 && confirm('¿Cancelar venta?')) {
+        saleItems = [];
+        renderSaleItems();
+    }
 }
 
 function renderSaleItems() {
-    var sale = activeSale();
     const container = document.getElementById('saleItems');
     const cartBadge = document.getElementById('cartCount');
-    let totalItems = sale.items.reduce(function(sum, item) { return sum + item.quantity; }, 0);
-    if (sale.items.length === 0) {
+    let totalItems = saleItems.reduce(function(sum, item) { return sum + item.quantity; }, 0);
+    
+    if (saleItems.length === 0) {
         container.innerHTML = '<div class="empty-sale"><i class="fas fa-shopping-basket"></i><p>Agrega productos</p></div>';
         document.getElementById('btnPay').disabled = true;
         document.getElementById('btnDespacho').disabled = true;
         cartBadge.style.display = 'none';
-        calculateTotals();
         return;
     }
+    
     cartBadge.style.display = 'inline';
     cartBadge.textContent = totalItems;
-    var html = '';
-    sale.items.forEach(item => {
-        html += '<div class="sale-item"><div class="sale-item-info"><div class="sale-item-name">' + item.name + '</div><div class="sale-item-price">S/ ' + item.price.toFixed(2) + ' x ' + item.quantity + '</div></div>' +
-            '<div class="sale-item-actions"><button class="qty-btn qty-minus" onclick="decreaseQty(' + item.id + ')">-</button>' +
-            '<span class="sale-item-qty">' + item.quantity + '</span><button class="qty-btn qty-plus" onclick="increaseQty(' + item.id + ')">+</button>' +
-            '<i class="fas fa-times remove-item" onclick="removeItem(' + item.id + ')"></i></div></div>';
+    
+    let html = '';
+    saleItems.forEach(item => {
+        html += '<div class="sale-item">' +
+            '<div class="sale-item-info">' +
+                '<div class="sale-item-name">' + item.name + '</div>' +
+                '<div class="sale-item-price">S/ ' + item.price.toFixed(2) + ' x ' + item.quantity + '</div>' +
+            '</div>' +
+            '<div class="sale-item-actions">' +
+                '<button class="qty-btn qty-minus" onclick="decreaseQty(' + item.id + ')">-</button>' +
+                '<span class="sale-item-qty">' + item.quantity + '</span>' +
+                '<button class="qty-btn qty-plus" onclick="increaseQty(' + item.id + ')">+</button>' +
+                '<i class="fas fa-times remove-item" onclick="removeItem(' + item.id + ')"></i>' +
+            '</div>' +
+        '</div>';
     });
+    
     container.innerHTML = html;
     document.getElementById('btnPay').disabled = false;
     document.getElementById('btnDespacho').disabled = false;
@@ -816,35 +749,53 @@ function renderSaleItems() {
 }
 
 function getTotal() {
-    var sale = activeSale();
-    var total = 0;
-    sale.items.forEach(item => { total += item.price * item.quantity; });
+    let total = 0;
+    saleItems.forEach(item => {
+        total += item.price * item.quantity;
+    });
     return total;
 }
 
-function calculateTotals() {
+function processSale() {
+    if (saleItems.length === 0) {
+        showError('No hay productos');
+        return;
+    }
+
     var total = getTotal();
-    const base = total / (1 + igvPercent / 100);
-    const igv = total - base;
-    document.getElementById('subtotal').textContent = 'S/ ' + base.toFixed(2);
-    document.getElementById('igv').textContent = 'S/ ' + igv.toFixed(2);
-    document.getElementById('total').textContent = 'S/ ' + total.toFixed(2);
-    updatePaymentTotals();
+    var payments = getPayments();
+    var paidTotal = getPaidTotal();
+    if (Math.abs(paidTotal - total) > 0.01) {
+        showError('El total pagado (S/ ' + paidTotal.toFixed(2) + ') no coincide con el total de la venta (S/ ' + total.toFixed(2) + '). Ajuste los pagos.');
+        return;
+    }
+
+    document.getElementById('customerIdInput').value = document.getElementById('customerId').value;
+    document.getElementById('documentTypeInput').value = document.getElementById('documentType').value;
+    document.getElementById('paymentsJson').value = JSON.stringify(payments);
+    document.getElementById('itemsJson').value = JSON.stringify(saleItems);
+    document.getElementById('totalInput').value = total;
+
+    document.getElementById('saleForm').submit();
 }
 
-// === PAYMENTS ===
 function addPayment() {
     var container = document.getElementById('paymentsContainer');
     var row = document.createElement('div');
     row.className = 'payment-row';
     row.style.cssText = 'display: flex; gap: 5px; margin-bottom: 4px; align-items: center;';
-    row.innerHTML = '<select class="form-control form-control-sm payment-method" style="flex: 1.5;" onchange="syncActiveSaleToDOM(); updateAllPaymentAmounts();">' +
-        '<option value="EFECTIVO">EFECTIVO</option><option value="TARJETA">TARJETA</option><option value="TRANSFERENCIA">TRANSFERENCIA</option><option value="YAPE">YAPE</option><option value="PLIN">PLIN</option></select>' +
-        '<input type="text" class="form-control form-control-sm payment-amount" placeholder="Monto" style="flex: 1;" oninput="syncActiveSaleToDOM(); updatePaymentTotals();" value="0.00">' +
-        '<input type="text" class="form-control form-control-sm payment-ref" placeholder="Ref" style="flex: 0.8;" oninput="syncActiveSaleToDOM();">' +
+    row.innerHTML = '<select class="form-control form-control-sm payment-method" style="flex: 1.5;" onchange="updateAllPaymentAmounts()">' +
+        '<option value="EFECTIVO">EFECTIVO</option>' +
+        '<option value="TARJETA">TARJETA</option>' +
+        '<option value="TRANSFERENCIA">TRANSFERENCIA</option>' +
+        '<option value="YAPE">YAPE</option>' +
+        '<option value="PLIN">PLIN</option>' +
+        '</select>' +
+        '<input type="text" class="form-control form-control-sm payment-amount" placeholder="Monto" style="flex: 1;" oninput="updatePaymentTotals()" value="0.00">' +
+        '<input type="text" class="form-control form-control-sm payment-ref" placeholder="Ref" style="flex: 0.8;">' +
         '<button type="button" class="btn btn-sm btn-danger remove-payment-btn" onclick="removePayment(this)" style="padding: 2px 6px;" title="Quitar pago">&times;</button>';
+
     container.appendChild(row);
-    syncActiveSaleToDOM();
     updatePaymentTotals();
     updateRemoveButtons();
 }
@@ -853,7 +804,6 @@ function removePayment(btn) {
     var rows = document.querySelectorAll('#paymentsContainer .payment-row');
     if (rows.length <= 1) return;
     btn.parentElement.remove();
-    syncActiveSaleToDOM();
     updateAllPaymentAmounts();
     updatePaymentTotals();
     updateRemoveButtons();
@@ -861,14 +811,34 @@ function removePayment(btn) {
 
 function updateRemoveButtons() {
     var rows = document.querySelectorAll('#paymentsContainer .payment-row');
-    rows.forEach(function(row) { var btn = row.querySelector('.remove-payment-btn'); if (btn) btn.style.display = rows.length > 1 ? 'inline-block' : 'none'; });
+    rows.forEach(function(row) {
+        var btn = row.querySelector('.remove-payment-btn');
+        if (btn) btn.style.display = rows.length > 1 ? 'inline-block' : 'none';
+    });
 }
+
 function getPayments() {
-    var payments = []; var rows = document.querySelectorAll('#paymentsContainer .payment-row');
-    rows.forEach(function(row) { var method = row.querySelector('.payment-method').value; var amount = parseFloat(row.querySelector('.payment-amount').value) || 0; var ref = row.querySelector('.payment-ref').value.trim(); if (amount > 0) { payments.push({ method: method, amount: amount, reference: ref }); } });
+    var payments = [];
+    var rows = document.querySelectorAll('#paymentsContainer .payment-row');
+    rows.forEach(function(row) {
+        var method = row.querySelector('.payment-method').value;
+        var amount = parseFloat(row.querySelector('.payment-amount').value) || 0;
+        var ref = row.querySelector('.payment-ref').value.trim();
+        if (amount > 0) {
+            payments.push({ method: method, amount: amount, reference: ref });
+        }
+    });
     return payments;
 }
-function getPaidTotal() { var total = 0; document.querySelectorAll('#paymentsContainer .payment-row').forEach(function(row) { total += parseFloat(row.querySelector('.payment-amount').value) || 0; }); return total; }
+
+function getPaidTotal() {
+    var total = 0;
+    var rows = document.querySelectorAll('#paymentsContainer .payment-row');
+    rows.forEach(function(row) {
+        total += parseFloat(row.querySelector('.payment-amount').value) || 0;
+    });
+    return total;
+}
 
 function updateAllPaymentAmounts() {
     var total = getTotal();
@@ -877,7 +847,9 @@ function updateAllPaymentAmounts() {
     var count = rows.length;
     var amountPer = Math.floor(total / count * 100) / 100;
     var remainder = total - (amountPer * (count - 1));
-    rows.forEach(function(row, i) { row.querySelector('.payment-amount').value = (i === count - 1 ? remainder : amountPer).toFixed(2); });
+    rows.forEach(function(row, i) {
+        row.querySelector('.payment-amount').value = (i === count - 1 ? remainder : amountPer).toFixed(2);
+    });
     updatePaymentTotals();
 }
 
@@ -893,90 +865,135 @@ function updatePaymentTotals() {
     pendingEl.style.color = Math.abs(pending) < 0.01 ? '#28a745' : '#dc3545';
 }
 
-// === PROCESS SALE ===
-function processSale() {
-    var sale = activeSale();
-    if (sale.items.length === 0) { showError('No hay productos'); return; }
-    var total = getTotal();
-    syncActiveSaleToDOM();
-    var payments = getPayments();
-    var paidTotal = getPaidTotal();
-    if (Math.abs(paidTotal - total) > 0.01) { showError('El total pagado (S/ ' + paidTotal.toFixed(2) + ') no coincide con el total de la venta (S/ ' + total.toFixed(2) + '). Ajuste los pagos.'); return; }
-    document.getElementById('customerIdInput').value = sale.customer_id || '';
-    document.getElementById('documentTypeInput').value = sale.document_type;
-    document.getElementById('paymentsJson').value = JSON.stringify(payments);
-    document.getElementById('itemsJson').value = JSON.stringify(sale.items);
-    document.getElementById('totalInput').value = total;
-    document.getElementById('saleTabId').value = appState.activeId;
-    localStorage.setItem('pos_pending_sale_id', appState.activeId);
-    afterSaleSuccess(null);
-    document.getElementById('saleForm').submit();
+function calculateTotals() {
+    let total = 0;
+    saleItems.forEach(item => {
+        total += item.price * item.quantity;
+    });
+
+    const base = total / (1 + igvPercent / 100);
+    const igv = total - base;
+
+    document.getElementById('subtotal').textContent = 'S/ ' + base.toFixed(2);
+    document.getElementById('igv').textContent = 'S/ ' + igv.toFixed(2);
+    document.getElementById('total').textContent = 'S/ ' + total.toFixed(2);
+
+    updatePaymentTotals();
 }
 
-function afterSaleSuccess(invoiceId) {
-    if (!invoiceId) { renderTabs(); saveState(); return; }
-    appState.sales = appState.sales.filter(function(s) { return s.id !== appState.activeId; });
-    if (appState.sales.length === 0) {
-        var today = new Date();
-        var ds = today.getFullYear().toString().slice(-2) + ('0' + (today.getMonth() + 1)).slice(-2) + ('0' + today.getDate()).slice(-2);
-        appState.sales.push({ id: appState.nextId, label: 'V-' + ds + '-0001', customer_id: null, customer_name: '', document_type: '03', payments: [{ method: 'EFECTIVO', amount: 0, reference: '' }], items: [] });
-        appState.activeId = appState.nextId;
-        appState.nextId++;
-    } else {
-        appState.activeId = appState.sales[appState.sales.length - 1].id;
-    }
-    syncDOMToActiveSale();
-    renderTabs();
-    saveState();
-}
-
-// === DESPACHO ===
 function printDespacho() {
-    var sale = activeSale();
-    if (sale.items.length === 0) { showError('No hay productos para imprimir'); return; }
+    if (saleItems.length === 0) {
+        showError('No hay productos para imprimir');
+        return;
+    }
+
     var btn = document.getElementById('btnDespacho');
     btn.disabled = true;
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Imprimiendo...';
+
     fetch('/pos/print-despacho', {
-        method: 'POST', headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content, 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
-        body: JSON.stringify({ items_json: JSON.stringify(sale.items) })
-    }).then(function(res) { return res.json(); }).then(function(data) {
+        method: 'POST',
+        headers: {
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: JSON.stringify({
+            items_json: JSON.stringify(saleItems)
+        })
+    })
+    .then(function(res) { return res.json(); })
+    .then(function(data) {
         if (data.success) {
             btn.innerHTML = '<i class="fas fa-check"></i> Impreso!';
             btn.style.background = 'linear-gradient(135deg, #28a745, #20c997)';
-            setTimeout(function() { btn.innerHTML = '<i class="fas fa-print"></i> Imprimir Despacho'; btn.style.background = 'linear-gradient(135deg, #ff8f00, #ff6d00)'; btn.disabled = false; }, 2000);
-        } else { showError(data.message || 'Error al imprimir'); btn.innerHTML = '<i class="fas fa-print"></i> Imprimir Despacho'; btn.disabled = false; }
-    }).catch(function(err) { showError('Error: ' + err); btn.innerHTML = '<i class="fas fa-print"></i> Imprimir Despacho'; btn.disabled = false; });
+            setTimeout(function() {
+                btn.innerHTML = '<i class="fas fa-print"></i> Imprimir Despacho';
+                btn.style.background = 'linear-gradient(135deg, #ff8f00, #ff6d00)';
+                btn.disabled = false;
+            }, 2000);
+        } else {
+            showError(data.message || 'Error al imprimir');
+            btn.innerHTML = '<i class="fas fa-print"></i> Imprimir Despacho';
+            btn.disabled = false;
+        }
+    })
+    .catch(function(err) {
+        showError('Error: ' + err);
+        btn.innerHTML = '<i class="fas fa-print"></i> Imprimir Despacho';
+        btn.disabled = false;
+    });
 }
 
-// === MODALS & UTILS ===
-function showError(message) { document.getElementById('errorMessage').textContent = message; $('#errorModal').modal('show'); }
+function showError(message) {
+    document.getElementById('errorMessage').textContent = message;
+    $('#errorModal').modal('show');
+}
+
 function sendToSunat() {
-    const invoiceId = document.getElementById('lastInvoiceId').value; if (!invoiceId) return;
-    fetch('/pos/sunat/' + invoiceId, { method: 'POST', headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content, 'Content-Type': 'application/json' } })
-    .then(response => response.json()).then(data => { alert(data.message || (data.success ? 'Enviado' : 'Error')); }).catch(error => { alert('Error al enviar: ' + error); });
+    const invoiceId = document.getElementById('lastInvoiceId').value;
+    if (!invoiceId) return;
+    
+    fetch('/pos/sunat/' + invoiceId, {
+        method: 'POST',
+        headers: {
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        alert(data.message || (data.success ? 'Enviado' : 'Error'));
+    })
+    .catch(error => {
+        alert('Error al enviar: ' + error);
+    });
 }
-function printInvoice(format) { const invoiceId = document.getElementById('lastInvoiceId').value; if (!invoiceId) return; window.open('/pos/print/' + invoiceId + '/' + format, '_blank'); }
 
-// === EVENTS ===
-document.addEventListener('keydown', function(e) { if (e.key === 'Escape' && activeSale().items.length === 0) { removeTab(appState.activeId); } });
-document.getElementById('customerSearch').addEventListener('input', function(e) { searchCustomers(e.target.value); });
-document.getElementById('customerSearch').addEventListener('blur', function() { setTimeout(function() { document.getElementById('customerDropdown').style.display = 'none'; }, 200); });
-document.getElementById('documentType').addEventListener('change', function() { syncActiveSaleToDOM(); saveState(); updateSerieByType(); });
+function printInvoice(format) {
+    const invoiceId = document.getElementById('lastInvoiceId').value;
+    if (!invoiceId) return;
+    window.open('/pos/print/' + invoiceId + '/' + format, '_blank');
+}
+
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') cancelSale();
+});
+
+document.getElementById('customerSearch').addEventListener('input', function(e) {
+    searchCustomers(e.target.value);
+});
+
+document.getElementById('customerSearch').addEventListener('blur', function() {
+    setTimeout(() => {
+        document.getElementById('customerDropdown').style.display = 'none';
+    }, 200);
+});
 
 document.addEventListener('DOMContentLoaded', function() {
-    syncDOMToActiveSale();
-    renderTabs();
     updateSerieByType();
 });
 
-function openCustomerModal() { document.getElementById('customerFrame').src = '/customers/create?company_id=' + ({{ $mainCompany->id ?? 1 }}); $('#customerModal').modal('show'); }
-function onCustomerCreated(customer) { customersData.push(customer); $('#customerModal').modal('hide'); selectCustomer(customer.id, customer.nombre); }
+function openCustomerModal() {
+    const companyId = 1;
+    document.getElementById('customerFrame').src = '/customers/create?company_id=' + companyId;
+    $('#customerModal').modal('show');
+}
+
+function onCustomerCreated(customer) {
+    customersData.push(customer);
+    $('#customerModal').modal('hide');
+    selectCustomer(customer.id, customer.nombre);
+}
 
 window.addEventListener('beforeunload', function(e) {
-    var hasItems = false;
-    appState.sales.forEach(function(s) { if (s.items.length > 0) hasItems = true; });
-    if (hasItems) { e.preventDefault(); e.returnValue = 'Hay ventas activas. Si sales se perderan.'; return e.returnValue; }
+    if (saleItems.length > 0) {
+        e.preventDefault();
+        e.returnValue = 'Tienes productos en el carrito. Si sales se perderan.';
+        return e.returnValue;
+    }
 });
+
 </script>
 @endpush

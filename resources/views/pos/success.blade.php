@@ -156,6 +156,29 @@
 
 @push('scripts')
 <script>
+(function() {
+    var pendingId = localStorage.getItem('pos_pending_sale_id');
+    if (pendingId) {
+        localStorage.removeItem('pos_pending_sale_id');
+        try {
+            var state = JSON.parse(localStorage.getItem('pos_multisale_state'));
+            if (state && state.sales) {
+                state.sales = state.sales.filter(function(s) { return s.id != pendingId; });
+                if (state.sales.length === 0) {
+                    var today = new Date();
+                    var ds = today.getFullYear().toString().slice(-2) + ('0' + (today.getMonth() + 1)).slice(-2) + ('0' + today.getDate()).slice(-2);
+                    state.sales.push({ id: state.nextId, label: 'V-' + ds + '-0001', customer_id: null, customer_name: '', document_type: '03', payments: [{ method: 'EFECTIVO', amount: 0, reference: '' }], items: [] });
+                    state.activeId = state.nextId;
+                    state.nextId++;
+                } else {
+                    state.activeId = state.sales[state.sales.length - 1].id;
+                }
+                localStorage.setItem('pos_multisale_state', JSON.stringify(state));
+            }
+        } catch(e) {}
+    }
+})();
+
 function sendToSunat(invoiceId) {
     var btn = document.getElementById('btnSunat');
     btn.disabled = true;
