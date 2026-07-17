@@ -28,7 +28,7 @@
                         </tr>
                     </thead>
                     <tbody>
-                        @forelse($productionOrders as $order)
+                        @forelse($orders as $order)
                         <tr>
                             <td>{{ $order->id }}</td>
                             <td>
@@ -63,8 +63,8 @@
                     </tbody>
                 </table>
             </div>
-            @if($productionOrders instanceof \Illuminate\Contracts\Pagination\LengthAwarePaginator)
-            <div class="card-footer">{{ $productionOrders->links() }}</div>
+            @if($orders instanceof \Illuminate\Contracts\Pagination\LengthAwarePaginator)
+            <div class="card-footer">{{ $orders->links() }}</div>
             @endif
         </div>
     </div>

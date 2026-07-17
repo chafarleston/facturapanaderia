@@ -29,7 +29,7 @@
                         </tr>
                     </thead>
                     <tbody>
-                        @forelse($scheduledOrders as $order)
+                        @forelse($orders as $order)
                         <tr>
                             <td>{{ $order->numero ?? '#'.$order->id }}</td>
                             <td>{{ $order->customer->nombre ?? 'N/A' }}</td>
@@ -57,8 +57,8 @@
                     </tbody>
                 </table>
             </div>
-            @if($scheduledOrders instanceof \Illuminate\Contracts\Pagination\LengthAwarePaginator)
-            <div class="card-footer">{{ $scheduledOrders->links() }}</div>
+            @if($orders instanceof \Illuminate\Contracts\Pagination\LengthAwarePaginator)
+            <div class="card-footer">{{ $orders->links() }}</div>
             @endif
         </div>
     </div>

@@ -7,7 +7,7 @@
     <div class="col-12">
         <div class="card card-primary">
             <div class="card-header">
-                <h3 class="card-title">Pedido {{ $scheduledOrder->numero ?? '#'.$scheduledOrder->id }}</h3>
+                <h3 class="card-title">Pedido {{ $scheduledOrder->order_number ?? '#'.$scheduledOrder->id }}</h3>
                 @php $badge = ['pendiente'=>'warning','confirmado'=>'info','en_produccion'=>'primary','listo'=>'success','entregado'=>'success','cancelado'=>'danger'][$scheduledOrder->estado] ?? 'secondary'; @endphp
                 <span class="badge badge-{{ $badge }} ml-2">{{ $scheduledOrder->estado }}</span>
             </div>

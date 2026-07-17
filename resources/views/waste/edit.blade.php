@@ -7,7 +7,7 @@
     <div class="col-md-8">
         <div class="card card-primary">
             <div class="card-header"><h3 class="card-title">Editar Registro de Merma</h3></div>
-            <form method="POST" action="{{ route('waste.update', $wasteRecord) }}">
+            <form method="POST" action="{{ route('waste.update', $waste) }}">
                 @csrf
                 @method('PUT')
                 <div class="card-body">
@@ -18,7 +18,7 @@
                                 <select name="product_id" class="form-control" required>
                                     <option value="">Seleccionar producto...</option>
                                     @foreach($products as $product)
-                                    <option value="{{ $product->id }}" {{ old('product_id', $wasteRecord->product_id) == $product->id ? 'selected' : '' }}>{{ $product->descripcion }}</option>
+                                    <option value="{{ $product->id }}" {{ old('product_id', $waste->product_id) == $product->id ? 'selected' : '' }}>{{ $product->descripcion }}</option>
                                     @endforeach
                                 </select>
                             </div>
@@ -26,7 +26,7 @@
                         <div class="col-md-3">
                             <div class="form-group">
                                 <label>Fecha <span class="text-danger">*</span></label>
-                                <input type="date" name="fecha" class="form-control" required value="{{ old('fecha', $wasteRecord->fecha) }}">
+                                <input type="date" name="fecha" class="form-control" required value="{{ old('fecha', $waste->fecha) }}">
                             </div>
                         </div>
                     </div>
@@ -34,17 +34,17 @@
                         <div class="col-md-3">
                             <div class="form-group">
                                 <label>Cantidad <span class="text-danger">*</span></label>
-                                <input type="number" name="cantidad" class="form-control" step="0.01" min="0.01" required value="{{ old('cantidad', $wasteRecord->cantidad) }}">
+                                <input type="number" name="cantidad" class="form-control" step="0.01" min="0.01" required value="{{ old('cantidad', $waste->cantidad) }}">
                             </div>
                         </div>
                         <div class="col-md-3">
                             <div class="form-group">
                                 <label>Unidad <span class="text-danger">*</span></label>
                                 <select name="unidad" class="form-control" required>
-                                    <option value="UNIDAD" {{ old('unidad', $wasteRecord->unidad) == 'UNIDAD' ? 'selected' : '' }}>UNIDAD</option>
-                                    <option value="KG" {{ old('unidad', $wasteRecord->unidad) == 'KG' ? 'selected' : '' }}>KG</option>
-                                    <option value="LT" {{ old('unidad', $wasteRecord->unidad) == 'LT' ? 'selected' : '' }}>LT</option>
-                                    <option value="DOCENA" {{ old('unidad', $wasteRecord->unidad) == 'DOCENA' ? 'selected' : '' }}>DOCENA</option>
+                                    <option value="UNIDAD" {{ old('unidad', $waste->unidad) == 'UNIDAD' ? 'selected' : '' }}>UNIDAD</option>
+                                    <option value="KG" {{ old('unidad', $waste->unidad) == 'KG' ? 'selected' : '' }}>KG</option>
+                                    <option value="LT" {{ old('unidad', $waste->unidad) == 'LT' ? 'selected' : '' }}>LT</option>
+                                    <option value="DOCENA" {{ old('unidad', $waste->unidad) == 'DOCENA' ? 'selected' : '' }}>DOCENA</option>
                                 </select>
                             </div>
                         </div>
@@ -55,7 +55,7 @@
                                     <option value="">Seleccionar motivo...</option>
                                     @php $motivos = ['vencido','danado','devolucion','no_vendido','produccion','otro']; @endphp
                                     @foreach($motivos as $m)
-                                    <option value="{{ $m }}" {{ old('motivo', $wasteRecord->motivo) == $m ? 'selected' : '' }}>{{ ucfirst($m) }}</option>
+                                    <option value="{{ $m }}" {{ old('motivo', $waste->motivo) == $m ? 'selected' : '' }}>{{ ucfirst($m) }}</option>
                                     @endforeach
                                 </select>
                             </div>
@@ -63,7 +63,7 @@
                     </div>
                     <div class="form-group">
                         <label>Notas</label>
-                        <textarea name="notas" class="form-control" rows="3">{{ old('notas', $wasteRecord->notas) }}</textarea>
+                        <textarea name="notas" class="form-control" rows="3">{{ old('notas', $waste->notas) }}</textarea>
                     </div>
                 </div>
                 <div class="card-footer">

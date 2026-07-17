@@ -29,7 +29,7 @@
                     </thead>
                     <tbody>
                         @php $totalPerdida = 0; @endphp
-                        @forelse($wasteRecords as $waste)
+                        @forelse($records as $waste)
                         @php $totalPerdida += ($waste->costo_perdida ?? 0); @endphp
                         <tr>
                             <td>{{ $waste->fecha }}</td>
@@ -52,7 +52,7 @@
                         <tr><td colspan="7" class="text-center">No hay registros de merma</td></tr>
                         @endforelse
                     </tbody>
-                    @if($wasteRecords->count() > 0)
+                    @if($records->count() > 0)
                     <tfoot>
                         <tr class="bg-light font-weight-bold">
                             <td colspan="4" class="text-right">Total Pérdida:</td>
@@ -63,8 +63,8 @@
                     @endif
                 </table>
             </div>
-            @if($wasteRecords instanceof \Illuminate\Contracts\Pagination\LengthAwarePaginator)
-            <div class="card-footer">{{ $wasteRecords->links() }}</div>
+            @if($records instanceof \Illuminate\Contracts\Pagination\LengthAwarePaginator)
+            <div class="card-footer">{{ $records->links() }}</div>
             @endif
         </div>
     </div>
