@@ -49,7 +49,7 @@
                 </table>
             </div>
             @if($recipes instanceof \Illuminate\Contracts\Pagination\LengthAwarePaginator)
-            <div class="card-footer">{{ $recipes->links() }}</div>
+            <div class="card-footer">{{ $recipes->links('pagination::bootstrap-4') }}</div>
             @endif
         </div>
     </div>

@@ -73,7 +73,7 @@
                 @endforelse
             </tbody>
         </table>
-        <div class="card-footer">{{ $outputs->links() }}</div>
+        <div class="card-footer">{{ $outputs->links('pagination::bootstrap-4') }}</div>
     </div>
 </div>
 @endsection

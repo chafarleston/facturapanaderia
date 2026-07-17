@@ -51,6 +51,6 @@
             </tbody>
         </table>
     </div>
-    <div class="card-footer">{{ $docs->links() }}</div>
+    <div class="card-footer">{{ $docs->links('pagination::bootstrap-4') }}</div>
 </div>
 @endsection

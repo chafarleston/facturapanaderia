@@ -56,7 +56,7 @@
                 </table>
             </div>
             @if($deliveries instanceof \Illuminate\Contracts\Pagination\LengthAwarePaginator)
-            <div class="card-footer">{{ $deliveries->links() }}</div>
+            <div class="card-footer">{{ $deliveries->links('pagination::bootstrap-4') }}</div>
             @endif
         </div>
     </div>

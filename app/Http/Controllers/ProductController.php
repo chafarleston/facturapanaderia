@@ -63,7 +63,7 @@ class ProductController extends Controller
             'igv_percent' => 'nullable|numeric|min:0|max:100',
             'category_id' => 'nullable|exists:categories,id',
             'stock' => 'nullable|numeric',
-            'kds_destination' => 'nullable|in:cocina,cocina2,bar',
+            'kds_destination' => 'nullable|in:cocina,cocina2,bar,autopedido',
         ]);
 
         if (is_null($validated['precio'] ?? null)) {
@@ -124,7 +124,7 @@ class ProductController extends Controller
             'tipo_afectacion' => 'required|in:GRA,EXO,INA,EXE',
             'igv_percent' => 'nullable|numeric|min:0|max:100',
             'category_id' => 'nullable|exists:categories,id',
-            'kds_destination' => 'nullable|in:cocina,cocina2,bar',
+            'kds_destination' => 'nullable|in:cocina,cocina2,bar,autopedido',
         ]);
 
         if (is_null($validated['precio'] ?? null)) {
@@ -207,7 +207,7 @@ class ProductController extends Controller
             'tipo_afectacion' => 'required|in:GRA,EXO,INA,EXE',
             'igv_percent' => 'nullable|numeric|min:0|max:100',
             'category_id' => 'nullable|exists:categories,id',
-            'kds_destination' => 'nullable|in:cocina,cocina2,bar',
+            'kds_destination' => 'nullable|in:cocina,cocina2,bar,autopedido',
             'components' => 'required|array|min:1',
             'components.*.product_id' => 'required|exists:products,id',
             'components.*.quantity' => 'required|numeric|min:0.01',
@@ -277,7 +277,7 @@ class ProductController extends Controller
             'tipo_afectacion' => 'required|in:GRA,EXO,INA,EXE',
             'igv_percent' => 'nullable|numeric|min:0|max:100',
             'category_id' => 'nullable|exists:categories,id',
-            'kds_destination' => 'nullable|in:cocina,cocina2,bar',
+            'kds_destination' => 'nullable|in:cocina,cocina2,bar,autopedido',
             'components' => 'required|array|min:1',
             'components.*.product_id' => 'required|exists:products,id',
             'components.*.quantity' => 'required|numeric|min:0.01',
@@ -350,7 +350,7 @@ class ProductController extends Controller
                 'umedida' => $this->findColumn($headerLower, ['umedida', 'unidad', 'uom', 'medida']),
                 'categoria' => $this->findColumn($headerLower, ['categoria', 'category', 'categoría']),
                 'codigo_sunat' => $this->findColumn($headerLower, ['codigo_sunat', 'sunat', 'sunat_code']),
-                'kds_destination' => $this->findColumn($headerLower, ['kds_destination', 'kds', 'destino_kds']),
+                'kds_destination' => $this->findColumn($headerLower, ['kds_destination', 'kds', 'destino_kds', 'destino de impresión', 'destino_impresion']),
             ];
         }
 
@@ -583,9 +583,9 @@ class ProductController extends Controller
             if (!empty($umedida) && !in_array($umedida, $umedidasValidas)) {
                 $warnings[] = "U.Medida '$umedida' inválida, se usará NIU";
             }
-            $kdsValidos = ['cocina', 'cocina2', 'bar'];
+            $kdsValidos = ['cocina', 'cocina2', 'bar', 'autopedido'];
             if (!empty($kds) && !in_array($kds, $kdsValidos)) {
-                $warnings[] = "Destino KDS '$kds' inválido, se usará cocina";
+                $warnings[] = "Destino de Impresión '$kds' inválido, se usará cocina";
             }
 
             $productExists = Product::where('company_id', $request->company_id)
@@ -664,7 +664,7 @@ class ProductController extends Controller
     public function downloadTemplate()
     {
         return $this->exportSpreadsheet([
-            ['codigo', 'codigo_barras', 'descripcion', 'precio', 'precio_compra', 'stock', 'tipo_afectacion', 'umedida', 'categoria', 'codigo_sunat', 'kds_destination'],
+            ['codigo', 'codigo_barras', 'descripcion', 'precio', 'precio_compra', 'stock', 'tipo_afectacion', 'umedida', 'categoria', 'codigo_sunat', 'Destino de Impresión'],
         ], 'plantilla_productos.xlsx');
     }
 

@@ -98,11 +98,12 @@
                 <div class="info-box">
                     <span class="info-box-icon bg-dark"><i class="fas fa-utensils"></i></span>
                     <div class="info-box-content">
-                        <span class="info-box-text">Destino KDS</span>
-                        <span class="info-box-number">
-                            @if(($product->kds_destination ?? 'cocina') == 'cocina2') KDS Cocina 2
-                            @elseif(($product->kds_destination ?? 'cocina') == 'bar') KDS Bar
-                            @else KDS Cocina
+                        <span class="info-box-text">Destino de Impresión</span>
+                            @if(($product->kds_destination ?? 'cocina') == 'cocina') Cocina
+                            @elseif(($product->kds_destination ?? 'cocina') == 'cocina2') Cocina 2
+                            @elseif(($product->kds_destination ?? 'cocina') == 'bar') Bar
+                            @elseif(($product->kds_destination ?? 'cocina') == 'autopedido') Auto Pedido (Despacho)
+                            @else Cocina
                             @endif
                         </span>
                     </div>

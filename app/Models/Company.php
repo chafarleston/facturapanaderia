@@ -17,11 +17,13 @@ class Company extends Model
         'tipo_contribuyente', 'estado',
         'soap_type_id', 'soap_username', 'soap_password', 'certificate',
         'order_mode', 'tax_type', 'igv_percent', 'reduced_igv_percent',
+        'allow_sell_without_stock',
     ];
 
     protected $casts = [
         'igv_percent' => 'decimal:2',
         'reduced_igv_percent' => 'decimal:2',
+        'allow_sell_without_stock' => 'boolean',
     ];
 
     public function getActiveIgvPercent(): float

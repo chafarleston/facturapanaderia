@@ -105,7 +105,7 @@
             </table>
 </div>
     <div class="card-footer">
-        {{ $summaries->appends(['status' => $status])->links() }}
+        {{ $summaries->appends(['status' => $status])->links('pagination::bootstrap-4') }}
     </div>
 </div>
 

@@ -29,7 +29,7 @@
                         <th>U.Medida</th>
                         <th>Categoría</th>
                         <th>Cód.SUNAT</th>
-                        <th>KDS</th>
+                        <th>Destino Impresión</th>
                         <th>Estado</th>
                     </tr>
                 </thead>

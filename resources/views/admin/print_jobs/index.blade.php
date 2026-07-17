@@ -76,7 +76,7 @@
                 </table>
             </div>
             <div class="card-footer clearfix">
-                {{ $jobs->links() }}
+                {{ $jobs->links('pagination::bootstrap-4') }}
             </div>
         </div>
     </div>

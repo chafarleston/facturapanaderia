@@ -136,6 +136,17 @@
             </div>
 
             <div class="card mt-3">
+                <div class="card-header"><h3 class="card-title">Configuración de Ventas</h3></div>
+                <div class="card-body">
+                    <div class="custom-control custom-switch">
+                        <input type="checkbox" class="custom-control-input" id="allowSellWithoutStock" name="allow_sell_without_stock" value="1" {{ $company->allow_sell_without_stock ? 'checked' : '' }}>
+                        <label class="custom-control-label" for="allowSellWithoutStock"><strong>Permitir venta de productos sin stock</strong></label>
+                    </div>
+                    <small class="form-text text-muted">Al activar esta opción, el POS permitirá vender productos aunque no tengan stock disponible. El stock quedará en negativo.</small>
+                </div>
+            </div>
+
+            <div class="card mt-3">
                 <div class="card-header"><h3 class="card-title">Configuración de IGV</h3></div>
                 <div class="card-body">
                     <div class="form-group">

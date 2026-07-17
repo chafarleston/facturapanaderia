@@ -51,11 +51,12 @@
                 </div>
                 <div class="col-md-4">
                     <div class="form-group">
-                        <label>Destino KDS</label>
+                        <label>Destino de Impresión</label>
                         <select name="kds_destination" class="form-control">
-                            <option value="cocina">KDS Cocina</option>
-                            <option value="cocina2">KDS Cocina 2</option>
-                            <option value="bar">KDS Bar</option>
+                            <option value="cocina">Cocina</option>
+                            <option value="cocina2">Cocina 2</option>
+                            <option value="bar">Bar</option>
+                            <option value="autopedido">Auto Pedido (Despacho)</option>
                         </select>
                     </div>
                 </div>

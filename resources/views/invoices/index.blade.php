@@ -60,7 +60,7 @@
             @endforelse
           </tbody>
         </table>
-        <div class="card-footer">{{ $invoices->links() }}</div>
+        <div class="card-footer">{{ $invoices->links('pagination::bootstrap-4') }}</div>
       </div>
     </div>
   </div>

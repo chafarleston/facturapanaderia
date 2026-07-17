@@ -516,6 +516,7 @@
 <script>
 let saleItems = [];
 const igvPercent = {{ $mainCompany->getActiveIgvPercent() }};
+const allowSellWithoutStock = {{ $allowSellWithoutStock ? 'true' : 'false' }};
 const productsData = @json($products->where('estado', 'ACTIVO'));
 const categoriesData = @json($categories);
 const customersData = @json($customers);
@@ -650,14 +651,14 @@ function addToSale(productId) {
     const product = productsData.find(p => p.id === productId);
     if (!product) return;
     
-    if (!product.is_composite && product.stock <= 0) {
+    if (!product.is_composite && product.stock <= 0 && !allowSellWithoutStock) {
         showError('Sin stock');
         return;
     }
     
     const existingItem = saleItems.find(item => item.id === productId);
     if (existingItem) {
-        if (product.is_composite || existingItem.quantity < product.stock) {
+        if (product.is_composite || allowSellWithoutStock || existingItem.quantity < product.stock) {
             existingItem.quantity++;
         } else {
             showError('Stock insuficiente');
@@ -691,7 +692,7 @@ function decreaseQty(productId) {
 
 function increaseQty(productId) {
     const item = saleItems.find(item => item.id === productId);
-    if (item && (item.is_composite || item.quantity < item.stock)) {
+    if (item && (item.is_composite || allowSellWithoutStock || item.quantity < item.stock)) {
         item.quantity++;
         renderSaleItems();
     }

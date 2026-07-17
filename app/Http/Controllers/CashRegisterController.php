@@ -204,8 +204,15 @@ class CashRegisterController extends Controller
             if (str_contains($pago, ' + ')) {
                 $parts = explode(' + ', $pago);
                 foreach ($parts as $part) {
-                    $amt = round($venta->total / count($parts), 2);
-                    $key = strtoupper(explode('/', trim($part))[0]);
+                    $part = trim($part);
+                    if (str_contains($part, '/')) {
+                        [$met, $amt] = explode('/', $part);
+                        $amt = min((float) $amt, (float) $venta->total);
+                    } else {
+                        $met = $part;
+                        $amt = min((float) $venta->total / count($parts), (float) $venta->total);
+                    }
+                    $key = strtoupper($met);
                     match (true) {
                         str_starts_with($key, 'EFECT') => $ventasEfectivo += $amt,
                         str_starts_with($key, 'TARJ') => $ventasTarjeta += $amt,
@@ -215,13 +222,20 @@ class CashRegisterController extends Controller
                     };
                 }
             } else {
-                $key = strtoupper(explode('/', $pago)[0]);
+                if (str_contains($pago, '/')) {
+                    [$met, $amt] = explode('/', $pago);
+                    $amt = min((float) $amt, (float) $venta->total);
+                } else {
+                    $met = $pago;
+                    $amt = (float) $venta->total;
+                }
+                $key = strtoupper($met);
                 match (true) {
-                    str_starts_with($key, 'EFECT') => $ventasEfectivo += $venta->total,
-                    str_starts_with($key, 'TARJ') => $ventasTarjeta += $venta->total,
-                    $key === 'YAPE' => $ventasYape += $venta->total,
-                    $key === 'PLIN' => $ventasPlin += $venta->total,
-                    default => $ventasOtro += $venta->total,
+                    str_starts_with($key, 'EFECT') => $ventasEfectivo += $amt,
+                    str_starts_with($key, 'TARJ') => $ventasTarjeta += $amt,
+                    $key === 'YAPE' => $ventasYape += $amt,
+                    $key === 'PLIN' => $ventasPlin += $amt,
+                    default => $ventasOtro += $amt,
                 };
             }
         }
@@ -375,8 +389,15 @@ class CashRegisterController extends Controller
                 if (str_contains($pago, ' + ')) {
                     $parts = explode(' + ', $pago);
                     foreach ($parts as $part) {
-                        $amt = round($venta->total / count($parts), 2);
-                        $key = strtoupper(explode('/', trim($part))[0]);
+                        $part = trim($part);
+                        if (str_contains($part, '/')) {
+                            [$met, $amt] = explode('/', $part);
+                            $amt = min((float) $amt, (float) $venta->total);
+                        } else {
+                            $met = $part;
+                            $amt = min((float) $venta->total / count($parts), (float) $venta->total);
+                        }
+                        $key = strtoupper($met);
                         match (true) {
                             str_starts_with($key, 'EFECT') => $data['efectivo'] += $amt,
                             str_starts_with($key, 'TARJ') => $data['tarjeta'] += $amt,
@@ -386,13 +407,20 @@ class CashRegisterController extends Controller
                         };
                     }
                 } else {
-                    $key = strtoupper(explode('/', $pago)[0]);
+                    if (str_contains($pago, '/')) {
+                        [$met, $amt] = explode('/', $pago);
+                        $amt = min((float) $amt, (float) $venta->total);
+                    } else {
+                        $met = $pago;
+                        $amt = (float) $venta->total;
+                    }
+                    $key = strtoupper($met);
                     match (true) {
-                        str_starts_with($key, 'EFECT') => $data['efectivo'] += $venta->total,
-                        str_starts_with($key, 'TARJ') => $data['tarjeta'] += $venta->total,
-                        $key === 'YAPE' => $data['yape'] += $venta->total,
-                        $key === 'PLIN' => $data['plin'] += $venta->total,
-                        default => $data['otro'] += $venta->total,
+                        str_starts_with($key, 'EFECT') => $data['efectivo'] += $amt,
+                        str_starts_with($key, 'TARJ') => $data['tarjeta'] += $amt,
+                        $key === 'YAPE' => $data['yape'] += $amt,
+                        $key === 'PLIN' => $data['plin'] += $amt,
+                        default => $data['otro'] += $amt,
                     };
                 }
             }

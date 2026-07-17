@@ -157,6 +157,7 @@ companies ──┬── users
 | `2026_07_16_000006` | **Repartidores** |
 | `2026_07_16_000007` | **Repartos / Deliveries** |
 | `2026_07_16_000008` | **Pedidos programados** |
+| `2026_07_17_000001` | Columna kds_destination en productos (Destino de Impresión) |
 
 ---
 
@@ -204,6 +205,7 @@ codigo, codigo_barras, descripcion, codigo_sunat
 umedida_codigo, precio, precio_minimo, precio_compra
 tipo_afectacion, igv_percent, estado
 stock, is_composite (boolean)
+kds_destination (cocina | cocina2 | bar | autopedido)  // Destino de Impresión
 
 // Relaciones
 components() → hasMany(ProductComponent::class, 'parent_product_id')
@@ -214,6 +216,12 @@ isComposite(): bool
 scopeSimple($query)
 scopeComposite($query)
 ```
+
+El campo `kds_destination` fue renombrado visualmente a **"Destino de Impresión"** en los formularios de producto. Define a qué impresora se envían los tickets:
+- `cocina` → Impresora Cocina 1
+- `cocina2` → Impresora Cocina 2
+- `bar` → Impresora Bar
+- `autopedido` → Impresora Auto Pedido / Despacho
 
 ### 3.4 Invoice
 
@@ -490,9 +498,47 @@ GET /scheduled-orders/{id}/print-comanda → printComanda() [PHP]:
 | Método | Ruta | Propósito |
 |--------|------|-----------|
 | `index()` | GET `/pos` | Vista POS (verifica caja abierta) |
-| `store()` | POST `/pos` | Procesa venta |
+| `store()` | POST `/pos` | Procesa venta con pagos múltiples |
 | `sendToSunat()` | POST `/pos/sunat/{id}` | Envía a SUNAT |
+| `printInvoice()` | GET `/pos/print/{id}/{format}` | Imprime comprobante (A4/80mm) |
 | `openDrawer()` | POST `/pos/open-drawer` | Abre cajón de efectivo |
+| `printDespacho()` | POST `/pos/print-despacho` | Imprime comanda de despacho en slot autopedido |
+
+#### Pagos Múltiples
+
+El POS acepta múltiples métodos de pago por venta con control de saldo:
+
+```
+Ejemplo: Total S/ 60.00
+  [EFECTIVO ▼] [40.00] [            ] [×]
+  [YAPE    ▼] [20.00] [#987654321  ] [×]
+
+  [+ Agregar] [⚖ Distribuir]   Pagado: S/ 60.00 | Pendiente: S/ 0.00
+```
+
+- **Agregar pago**: botón que añade filas dinámicas con método, monto y referencia
+- **Distribuir**: reparte el total equitativamente entre todas las filas
+- **Validación**: bloquea el cobro si el total pagado no coincide con el total de la venta
+- **Formato almacenado**: `EFECTIVO/40.00 + YAPE/20.00` (compatible con cierre de caja)
+- El `total_ventas` se calcula como suma de los montos de cada método de pago
+
+#### Comanda de Despacho
+
+Botón "Imprimir Despacho" en el POS que envía una comanda a la impresora del slot `autopedido`:
+
+```
+Ticket generado (PlainTextTicket::despachoTicket):
+         *** DESPACHO ***
+          FacturaPanadería
+    Hora: 14:30:25
+    ---------------------------------
+    2 x Pan Frances        S/ 1.00
+    1 x Torta de Chocolate S/ 45.00
+    ---------------------------------
+    TOTAL:                 S/ 46.00
+       Gracias por su compra!
+    Fecha: 15/07/2026 14:30
+```
 
 ### 4.7 CashRegisterController (Caja)
 
@@ -513,9 +559,13 @@ close() [PHP]:
     2. Verificar que no esté ya cerrada
     3. Verificar que no haya pedidos programados pendientes
     4. Obtener ventas del periodo (por datetime exacto)
-    5. Calcular totales por método de pago y tipo documento
-    6. Actualizar registro con montos
-    7. Redirigir a resumen
+    5. Parsear método de pago con formato "EFECTIVO/40.00 + YAPE/20.00"
+       - Si hay ' + ': explota y lee el monto de cada parte (ej: explode('/', 'EFECTIVO/40.00')[1] = 40.00)
+       - Si no: usa el monto total de la venta
+    6. Clasificar por método (EFECTIVO, TARJETA, YAPE, PLIN, OTRO)
+    7. Calcular totales por tipo de documento (Facturas, Boletas, NV)
+    8. Actualizar registro con montos
+    9. Redirigir a resumen
 ```
 
 ### 4.8 InvoiceController (Facturación)
@@ -541,6 +591,7 @@ Maneja la impresión de tickets ESC/POS.
 
 ```php
 printScheduledOrderComanda($order)  // Comanda de pedido programado
+printDespacho($items)               // Comanda de despacho (slot autopedido)
 printKitchenOrder($order)           // Ticket de cocina (adaptado para producción)
 printInvoice($invoice)              // Factura/Boleta
 processQueue()                      // Procesa cola de impresión
@@ -552,6 +603,7 @@ Genera texto ESC/POS para tickets térmicos.
 
 ```php
 scheduledOrderComanda($order)  // Comanda con items, total, anticipo, saldo
+despachoTicket($items)          // Comanda de despacho con encabezado "DESPACHO"
 invoiceTicket($invoice)         // Factura
 cashRegisterSummary($cashregister, $data)  // Resumen de caja
 ```
@@ -2220,10 +2272,21 @@ public function store(Request $request)
     }
 
     // 2. Obtener datos del request (JSON)
-    $items = $request->items;
+    $items = json_decode($request->items_json, true);
     $tipoDocumento = $request->document_type;  // 01, 03, NV
-    $metodoPago = $request->payment_method;
     $customerId = $request->customer_id;
+
+    // 2.1 Procesar pagos múltiples
+    $payments = json_decode($request->payments_json, true) ?: [];
+    $metodoPago = 'EFECTIVO';
+    if (!empty($payments)) {
+        $parts = [];
+        foreach ($payments as $p) {
+            // Formato: "EFECTIVO/40.00 + YAPE/20.00"
+            $parts[] = ($p['method'] ?? 'EFECTIVO') . '/' . number_format($p['amount'] ?? 0, 2);
+        }
+        $metodoPago = implode(' + ', $parts);
+    }
 
     // 3. Buscar/crear serie y número correlativo
     $serie = Serie::where('company_id', $companyId)
@@ -2252,6 +2315,73 @@ public function store(Request $request)
     return redirect()->route('pos.success', $invoice->id);
 }
 ```
+
+#### Comanda de Despacho desde POS
+
+```php
+// PosController::printDespacho() — imprime en slot autopedido
+public function printDespacho(Request $request)
+{
+    $items = json_decode($request->items_json, true);
+    if (empty($items)) {
+        return response()->json(['success' => false, 'message' => 'No hay productos']);
+    }
+
+    $printer = Printer::where('assigned_to', 'autopedido')->where('active', true)->first();
+    if (!$printer) {
+        return response()->json(['success' => false, 'message' => 'No hay impresora configurada']);
+    }
+
+    $text = PlainTextTicket::despachoTicket($items);
+
+    PrintJob::create([
+        'printer_name' => $printer->printer_name,
+        'job_type' => 'despacho',
+        'data' => base64_encode($text),
+        'status' => 'pending',
+    ]);
+
+    app(PrintService::class)->processQueue();
+
+    return response()->json(['success' => true, 'message' => 'Comanda enviada']);
+}
+```
+
+#### Pagos Múltiples — Validación en el Frontend
+
+```javascript
+// JS en el POS — processSale() con validación de pagos
+function processSale() {
+    var total = getTotal();
+    var paidTotal = getPaidTotal();
+
+    // Bloquear si los pagos no cuadran con el total
+    if (Math.abs(paidTotal - total) > 0.01) {
+        showError('El total pagado no coincide con la venta');
+        return;
+    }
+
+    // Recoger pagos como JSON: [{method:"EFECTIVO",amount:40,reference:""},{...}]
+    document.getElementById('paymentsJson').value = JSON.stringify(getPayments());
+    document.getElementById('saleForm').submit();
+}
+```
+
+---
+
+### 15.11 Productos — Destino de Impresión y Ajustes de Vista
+
+```php
+// ProductController: validación de kds_destination con autopedido
+'kds_destination' => 'nullable|in:cocina,cocina2,bar,autopedido',
+```
+
+El campo `kds_destination` en productos fue renombrado en la interfaz a **"Destino de Impresión"**.
+Valores aceptados: `cocina`, `cocina2`, `bar`, `autopedido`.
+
+La importación de productos desde Excel acepta las columnas: `kds_destination`, `kds`, `destino_kds`, `Destino de Impresión`, `destino_impresion`.
+
+La plantilla descargable usa el encabezado `Destino de Impresión`.
 
 ---
 
@@ -2420,3 +2550,9 @@ facturapanaderia/
 - Sistema de reparto (zonas, repartidores, tracking)
 - Dashboard con KPIs de panadería
 - Rol `panadero` (reemplaza `mozo`)
+- **Pagos múltiples en POS** (métodos ilimitados por venta con control de saldo)
+- **Comanda de Despacho** en POS (imprime en slot `autopedido` con encabezado "DESPACHO")
+- **Destino de Impresión** en productos (cocina, cocina2, bar, autopedido/despacho)
+- Columna `kds_destination` recreada en products (migración 2026_07_17_000001)
+- Paginación Bootstrap 4 unificada en todas las vistas (eliminado Tailwind CSS default)
+- Cierre de caja corregido para leer montos reales de pagos múltiples (formato `EFECTIVO/40.00 + YAPE/20.00`)

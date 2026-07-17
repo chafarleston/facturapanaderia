@@ -23,10 +23,10 @@
                 <li><strong>umedida</strong> (opcional, valores: NIU, KGM, LTR, etc.)</li>
                 <li><strong>categoria</strong> (opcional, se crea automáticamente si no existe)</li>
                 <li><strong>codigo_sunat</strong> (opcional, ej: 53121801, 53121605, 51121701, etc.)</li>
-                <li><strong>kds_destination</strong> (opcional, valores: cocina, cocina2, bar)</li>
+                <li><strong>Destino de Impresión</strong> (opcional, valores: cocina, cocina2, bar, autopedido)</li>
             </ul>
             <p class="mt-2 mb-0 text-muted" style="font-size:12px;">
-                <strong>Destinos KDS:</strong> cocina (KDS Cocina), cocina2 (KDS Cocina 2), bar (KDS Bar)
+                <strong>Destinos de Impresión:</strong> cocina (Cocina), cocina2 (Cocina 2), bar (Bar), autopedido (Auto Pedido / Despacho)
             </p>
         </div>
 
@@ -69,7 +69,7 @@
                     <th>umedida</th>
                     <th>categoria</th>
                     <th>codigo_sunat</th>
-                    <th>kds_destination</th>
+                    <th>Destino de Impresión</th>
                 </tr>
             </thead>
             <tbody>
@@ -124,6 +124,19 @@
                     <td>Bebidas</td>
                     <td>51111702</td>
                     <td>bar</td>
+                </tr>
+                <tr>
+                    <td>PROD00005</td>
+                    <td></td>
+                    <td>Pan Frances x10</td>
+                    <td>12.00</td>
+                    <td>6.00</td>
+                    <td>200</td>
+                    <td>GRA</td>
+                    <td>NIU</td>
+                    <td>Panes</td>
+                    <td>53121801</td>
+                    <td>autopedido</td>
                 </tr>
             </tbody>
         </table>

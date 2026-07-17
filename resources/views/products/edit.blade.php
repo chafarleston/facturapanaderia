@@ -63,11 +63,12 @@
                 </div>
                 <div class="col-md-3">
                     <div class="form-group">
-                        <label>Destino KDS</label>
+                        <label>Destino de Impresión</label>
                         <select name="kds_destination" class="form-control">
-                            <option value="cocina" {{ ($product->kds_destination ?? 'cocina') == 'cocina' ? 'selected' : '' }}>KDS Cocina</option>
-                            <option value="cocina2" {{ ($product->kds_destination ?? 'cocina') == 'cocina2' ? 'selected' : '' }}>KDS Cocina 2</option>
-                            <option value="bar" {{ ($product->kds_destination ?? 'cocina') == 'bar' ? 'selected' : '' }}>KDS Bar</option>
+                            <option value="cocina" {{ ($product->kds_destination ?? 'cocina') == 'cocina' ? 'selected' : '' }}>Cocina</option>
+                            <option value="cocina2" {{ ($product->kds_destination ?? 'cocina') == 'cocina2' ? 'selected' : '' }}>Cocina 2</option>
+                            <option value="bar" {{ ($product->kds_destination ?? 'cocina') == 'bar' ? 'selected' : '' }}>Bar</option>
+                            <option value="autopedido" {{ ($product->kds_destination ?? 'cocina') == 'autopedido' ? 'selected' : '' }}>Auto Pedido (Despacho)</option>
                         </select>
                     </div>
                 </div>
