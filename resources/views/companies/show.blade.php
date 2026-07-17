@@ -69,6 +69,23 @@
                     </div>
                 </div>
             </div>
+
+            <div class="card mt-3">
+                <div class="card-header"><h3 class="card-title">Configuración de Ventas</h3></div>
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <span class="mr-3">Venta de productos sin stock:</span>
+                        @if($company->allow_sell_without_stock)
+                            <span class="badge badge-success p-2"><i class="fas fa-check-circle"></i> Activado</span>
+                            <small class="text-muted ml-2">El POS permite vender productos aunque no tengan stock. El stock quedará en negativo.</small>
+                        @else
+                            <span class="badge badge-secondary p-2"><i class="fas fa-times-circle"></i> Desactivado</span>
+                            <small class="text-muted ml-2">El POS bloquea la venta de productos sin stock disponible.</small>
+                        @endif
+                    </div>
+                </div>
+            </div>
+
             <div class="card-footer">
                 <a href="{{ route('companies.edit', $company) }}" class="btn btn-warning"><i class="fas fa-edit"></i> Editar</a>
                 <a href="{{ route('companies.index') }}" class="btn btn-secondary">Volver</a>
