@@ -992,10 +992,5 @@ document.addEventListener('DOMContentLoaded', function() {
 function openCustomerModal() { document.getElementById('customerFrame').src = '/customers/create?company_id=' + ({{ $mainCompany->id ?? 1 }}); $('#customerModal').modal('show'); }
 function onCustomerCreated(customer) { customersData.push(customer); $('#customerModal').modal('hide'); selectCustomer(customer.id, customer.nombre); }
 
-window.addEventListener('beforeunload', function(e) {
-    var hasItems = false;
-    appState.sales.forEach(function(s) { if (s.items.length > 0) hasItems = true; });
-    if (hasItems) { e.preventDefault(); e.returnValue = 'Hay ventas activas. Si sales se perderan.'; return e.returnValue; }
-});
 </script>
 @endpush
