@@ -9,6 +9,8 @@ class DeliveryPerson extends Model
 {
     use HasFactory;
 
+    protected $table = 'delivery_persons';
+
     protected $fillable = [
         'company_id', 'nombre', 'telefono', 'vehiculo', 'activo',
     ];
