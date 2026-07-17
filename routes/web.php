@@ -132,6 +132,7 @@ Route::get('/customers/search', [CustomerApiController::class, 'search'])->name(
     Route::post('/pos/sunat/{id}', [PosController::class, 'sendToSunat'])->name('pos.sunat');
     Route::get('/pos/print/{id}/{format}', [PosController::class, 'printInvoice'])->name('pos.print');
     Route::post('/pos/open-drawer', [PosController::class, 'openDrawer'])->name('pos.openDrawer');
+    Route::post('/pos/print-despacho', [PosController::class, 'printDespacho'])->name('pos.printDespacho');
 
     // Bakery: Recetas (Recipes)
     Route::resource('recipes', \App\Http\Controllers\RecipeController::class);

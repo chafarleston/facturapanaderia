@@ -324,6 +324,37 @@ class PlainTextTicket
         return $t->getEscPos();
     }
 
+    public static function despachoTicket(array $items): string
+    {
+        $t = new self('escpos');
+        $t->center('*** DESPACHO ***', '*');
+        $t->blank();
+        $t->center('FacturaPanaderia');
+        $t->blank();
+        $t->text('Hora: ' . now()->format('H:i:s'));
+        $t->separator();
+
+        $total = 0;
+        foreach ($items as $item) {
+            $nombre = $item['name'] ?? 'Producto';
+            $cantidad = $item['quantity'] ?? 1;
+            $precio = $item['price'] ?? 0;
+            $subtotal = $cantidad * $precio;
+            $total += $subtotal;
+
+            $t->text(number_format($cantidad, 0) . ' x ' . $nombre);
+            $t->right('S/ ' . number_format($subtotal, 2));
+        }
+
+        $t->separator();
+        $t->twoColumns('TOTAL:', 'S/ ' . number_format($total, 2));
+        $t->blank();
+        $t->center('Gracias por su compra!');
+        $t->blank();
+        $t->text('Fecha: ' . now()->format('d/m/Y H:i'));
+        return $t->getEscPos();
+    }
+
     protected function buildKitchenHeader($order, string $dest = 'cocina'): void
     {
         $label = match($dest) { 'cocina2' => 'COCINA 2', 'bar' => 'BAR', default => 'COCINA' };

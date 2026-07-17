@@ -379,21 +379,35 @@
                 </div>
             </div>
             
-            <div style="display: flex; gap: 8px; margin-bottom: 10px;">
-                <div style="flex: 1;">
-                    <label>Metodo de Pago</label>
-                    <select id="paymentMethod" class="form-control form-control-sm">
-                        <option value="EFECTIVO">EFECTIVO</option>
-                        <option value="TARJETA">TARJETA</option>
-                        <option value="TRANSFERENCIA">TRANSFERENCIA</option>
-                        <option value="YAPE">YAPE</option>
-                        <option value="PLIN">PLIN</option>
-                        <option value="MIXTO">MIXTO</option>
-                    </select>
+            <div style="margin-bottom: 10px;">
+                <label><i class="fas fa-money-bill"></i> Pagos</label>
+                <div id="paymentsContainer">
+                    <div class="payment-row" style="display: flex; gap: 5px; margin-bottom: 4px; align-items: center;">
+                        <select class="form-control form-control-sm payment-method" style="flex: 1.5;" onchange="updateAllPaymentAmounts()">
+                            <option value="EFECTIVO">EFECTIVO</option>
+                            <option value="TARJETA">TARJETA</option>
+                            <option value="TRANSFERENCIA">TRANSFERENCIA</option>
+                            <option value="YAPE">YAPE</option>
+                            <option value="PLIN">PLIN</option>
+                        </select>
+                        <input type="text" class="form-control form-control-sm payment-amount" placeholder="Monto" style="flex: 1;" oninput="updatePaymentTotals()" value="0.00">
+                        <input type="text" class="form-control form-control-sm payment-ref" placeholder="Ref" style="flex: 0.8;">
+                        <button type="button" class="btn btn-sm btn-danger remove-payment-btn" onclick="removePayment(this)" style="padding: 2px 6px; display: none;" title="Quitar pago">&times;</button>
+                    </div>
                 </div>
-                <div style="flex: 1;">
-                    <label>Referencia</label>
-                    <input type="text" id="reference" class="form-control form-control-sm" placeholder="N° operacion">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px;">
+                    <div>
+                        <button type="button" class="btn btn-sm btn-outline-primary" onclick="addPayment()" style="font-size: 11px; padding: 2px 10px;">
+                            <i class="fas fa-plus"></i> Agregar
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="updateAllPaymentAmounts()" style="font-size: 11px; padding: 2px 8px; margin-left: 4px;" title="Distribuir el total entre todos los pagos">
+                            <i class="fas fa-balance-scale"></i>
+                        </button>
+                    </div>
+                    <span style="font-size: 11px;">
+                        Pagado: <strong id="paidTotal" style="color: #dc3545;">S/ 0.00</strong>
+                        &nbsp;|&nbsp; Pendiente: <strong id="pendingBalance" style="color: #dc3545;">S/ 0.00</strong>
+                    </span>
                 </div>
             </div>
             
@@ -420,6 +434,13 @@
                     <i class="fas fa-credit-card"></i> COBRAR
                 </button>
             </div>
+
+            <div style="margin-top: 8px;">
+                <button class="btn-pay" id="btnDespacho" onclick="printDespacho()" disabled
+                    style="background: linear-gradient(135deg, #ff8f00, #ff6d00); font-size: 14px; padding: 10px;">
+                    <i class="fas fa-print"></i> Imprimir Despacho
+                </button>
+            </div>
         </div>
     </div>
 </div>
@@ -428,8 +449,7 @@
     @csrf
     <input type="hidden" name="customer_id" id="customerIdInput">
     <input type="hidden" name="document_type" id="documentTypeInput">
-    <input type="hidden" name="payment_method" id="paymentMethodInput">
-    <input type="hidden" name="reference" id="referenceInput">
+    <input type="hidden" name="payments_json" id="paymentsJson">
     <input type="hidden" name="items_json" id="itemsJson">
     <input type="hidden" name="total" id="totalInput">
 </form>
@@ -695,6 +715,7 @@ function renderSaleItems() {
     if (saleItems.length === 0) {
         container.innerHTML = '<div class="empty-sale"><i class="fas fa-shopping-basket"></i><p>Agrega productos</p></div>';
         document.getElementById('btnPay').disabled = true;
+        document.getElementById('btnDespacho').disabled = true;
         return;
     }
     
@@ -716,21 +737,8 @@ function renderSaleItems() {
     
     container.innerHTML = html;
     document.getElementById('btnPay').disabled = false;
+    document.getElementById('btnDespacho').disabled = false;
     calculateTotals();
-}
-
-function calculateTotals() {
-    let total = 0;
-    saleItems.forEach(item => {
-        total += item.price * item.quantity;
-    });
-    
-    const base = total / (1 + igvPercent / 100);
-    const igv = total - base;
-    
-    document.getElementById('subtotal').textContent = 'S/ ' + base.toFixed(2);
-    document.getElementById('igv').textContent = 'S/ ' + igv.toFixed(2);
-    document.getElementById('total').textContent = 'S/ ' + total.toFixed(2);
 }
 
 function getTotal() {
@@ -746,15 +754,169 @@ function processSale() {
         showError('No hay productos');
         return;
     }
-    
+
+    var total = getTotal();
+    var payments = getPayments();
+    var paidTotal = getPaidTotal();
+    if (Math.abs(paidTotal - total) > 0.01) {
+        showError('El total pagado (S/ ' + paidTotal.toFixed(2) + ') no coincide con el total de la venta (S/ ' + total.toFixed(2) + '). Ajuste los pagos.');
+        return;
+    }
+
     document.getElementById('customerIdInput').value = document.getElementById('customerId').value;
     document.getElementById('documentTypeInput').value = document.getElementById('documentType').value;
-    document.getElementById('paymentMethodInput').value = document.getElementById('paymentMethod').value;
-    document.getElementById('referenceInput').value = document.getElementById('reference').value;
+    document.getElementById('paymentsJson').value = JSON.stringify(payments);
     document.getElementById('itemsJson').value = JSON.stringify(saleItems);
-    document.getElementById('totalInput').value = getTotal();
-    
+    document.getElementById('totalInput').value = total;
+
     document.getElementById('saleForm').submit();
+}
+
+function addPayment() {
+    var container = document.getElementById('paymentsContainer');
+    var row = document.createElement('div');
+    row.className = 'payment-row';
+    row.style.cssText = 'display: flex; gap: 5px; margin-bottom: 4px; align-items: center;';
+    row.innerHTML = '<select class="form-control form-control-sm payment-method" style="flex: 1.5;" onchange="updateAllPaymentAmounts()">' +
+        '<option value="EFECTIVO">EFECTIVO</option>' +
+        '<option value="TARJETA">TARJETA</option>' +
+        '<option value="TRANSFERENCIA">TRANSFERENCIA</option>' +
+        '<option value="YAPE">YAPE</option>' +
+        '<option value="PLIN">PLIN</option>' +
+        '</select>' +
+        '<input type="text" class="form-control form-control-sm payment-amount" placeholder="Monto" style="flex: 1;" oninput="updatePaymentTotals()" value="0.00">' +
+        '<input type="text" class="form-control form-control-sm payment-ref" placeholder="Ref" style="flex: 0.8;">' +
+        '<button type="button" class="btn btn-sm btn-danger remove-payment-btn" onclick="removePayment(this)" style="padding: 2px 6px;" title="Quitar pago">&times;</button>';
+
+    container.appendChild(row);
+    updatePaymentTotals();
+    updateRemoveButtons();
+}
+
+function removePayment(btn) {
+    var rows = document.querySelectorAll('#paymentsContainer .payment-row');
+    if (rows.length <= 1) return;
+    btn.parentElement.remove();
+    updateAllPaymentAmounts();
+    updatePaymentTotals();
+    updateRemoveButtons();
+}
+
+function updateRemoveButtons() {
+    var rows = document.querySelectorAll('#paymentsContainer .payment-row');
+    rows.forEach(function(row) {
+        var btn = row.querySelector('.remove-payment-btn');
+        if (btn) btn.style.display = rows.length > 1 ? 'inline-block' : 'none';
+    });
+}
+
+function getPayments() {
+    var payments = [];
+    var rows = document.querySelectorAll('#paymentsContainer .payment-row');
+    rows.forEach(function(row) {
+        var method = row.querySelector('.payment-method').value;
+        var amount = parseFloat(row.querySelector('.payment-amount').value) || 0;
+        var ref = row.querySelector('.payment-ref').value.trim();
+        if (amount > 0) {
+            payments.push({ method: method, amount: amount, reference: ref });
+        }
+    });
+    return payments;
+}
+
+function getPaidTotal() {
+    var total = 0;
+    var rows = document.querySelectorAll('#paymentsContainer .payment-row');
+    rows.forEach(function(row) {
+        total += parseFloat(row.querySelector('.payment-amount').value) || 0;
+    });
+    return total;
+}
+
+function updateAllPaymentAmounts() {
+    var total = getTotal();
+    if (total <= 0) return;
+    var rows = document.querySelectorAll('#paymentsContainer .payment-row');
+    var count = rows.length;
+    var amountPer = Math.floor(total / count * 100) / 100;
+    var remainder = total - (amountPer * (count - 1));
+    rows.forEach(function(row, i) {
+        row.querySelector('.payment-amount').value = (i === count - 1 ? remainder : amountPer).toFixed(2);
+    });
+    updatePaymentTotals();
+}
+
+function updatePaymentTotals() {
+    var total = getTotal();
+    var paid = getPaidTotal();
+    var pending = total - paid;
+    var paidEl = document.getElementById('paidTotal');
+    var pendingEl = document.getElementById('pendingBalance');
+    paidEl.textContent = 'S/ ' + paid.toFixed(2);
+    pendingEl.textContent = 'S/ ' + pending.toFixed(2);
+    paidEl.style.color = Math.abs(pending) < 0.01 ? '#28a745' : '#dc3545';
+    pendingEl.style.color = Math.abs(pending) < 0.01 ? '#28a745' : '#dc3545';
+}
+
+function calculateTotals() {
+    let total = 0;
+    saleItems.forEach(item => {
+        total += item.price * item.quantity;
+    });
+
+    const base = total / (1 + igvPercent / 100);
+    const igv = total - base;
+
+    document.getElementById('subtotal').textContent = 'S/ ' + base.toFixed(2);
+    document.getElementById('igv').textContent = 'S/ ' + igv.toFixed(2);
+    document.getElementById('total').textContent = 'S/ ' + total.toFixed(2);
+
+    updatePaymentTotals();
+}
+
+function printDespacho() {
+    if (saleItems.length === 0) {
+        showError('No hay productos para imprimir');
+        return;
+    }
+
+    var btn = document.getElementById('btnDespacho');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Imprimiendo...';
+
+    fetch('/pos/print-despacho', {
+        method: 'POST',
+        headers: {
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: JSON.stringify({
+            items_json: JSON.stringify(saleItems)
+        })
+    })
+    .then(function(res) { return res.json(); })
+    .then(function(data) {
+        if (data.success) {
+            btn.innerHTML = '<i class="fas fa-check"></i> Impreso!';
+            btn.style.background = 'linear-gradient(135deg, #28a745, #20c997)';
+            setTimeout(function() {
+                btn.innerHTML = '<i class="fas fa-print"></i> Imprimir Despacho';
+                btn.style.background = 'linear-gradient(135deg, #ff8f00, #ff6d00)';
+                btn.disabled = false;
+            }, 2000);
+        } else {
+            showError(data.message || 'Error al imprimir');
+            btn.innerHTML = '<i class="fas fa-print"></i> Imprimir Despacho';
+            btn.disabled = false;
+        }
+    })
+    .catch(function(err) {
+        showError('Error: ' + err);
+        btn.innerHTML = '<i class="fas fa-print"></i> Imprimir Despacho';
+        btn.disabled = false;
+    });
 }
 
 function showError(message) {
