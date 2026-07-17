@@ -750,6 +750,7 @@ function addToSale(productId) {
     if (existingItem) {
         if (product.is_composite || allowSellWithoutStock || existingItem.quantity < product.stock) {
             existingItem.quantity++;
+            existingItem.despacho_printed = false;
         } else { showError('Stock insuficiente'); return; }
     } else {
         sale.items.push({ id: product.id, name: product.descripcion, price: parseFloat(product.precio), quantity: 1, stock: product.stock, is_composite: product.is_composite || false });
@@ -771,7 +772,7 @@ function decreaseQty(productId) {
 function increaseQty(productId) {
     var sale = activeSale();
     const item = sale.items.find(item => item.id === productId);
-    if (item && (item.is_composite || allowSellWithoutStock || item.quantity < item.stock)) { item.quantity++; renderSaleItems(); renderTabs(); saveState(); }
+    if (item && (item.is_composite || allowSellWithoutStock || item.quantity < item.stock)) { item.quantity++; item.despacho_printed = false; renderSaleItems(); renderTabs(); saveState(); }
 }
 
 function removeItem(productId) {
@@ -804,7 +805,12 @@ function renderSaleItems() {
     cartBadge.textContent = totalItems;
     var html = '';
     sale.items.forEach(item => {
-        html += '<div class="sale-item"><div class="sale-item-info"><div class="sale-item-name">' + item.name + '</div><div class="sale-item-price">S/ ' + item.price.toFixed(2) + ' x ' + item.quantity + '</div></div>' +
+        var despachoIcon = item.despacho_printed
+            ? '<span style="color:#28a745;font-size:12px;" title="Enviado a despacho ' + (item.despacho_hora || '') + '"><i class="fas fa-check-circle"></i></span>'
+            : '<span style="color:#ff8f00;font-size:12px;" title="Pendiente despacho"><i class="fas fa-clock"></i></span>';
+        html += '<div class="sale-item"' + (item.despacho_printed ? ' style="opacity:0.7;border-left:3px solid #28a745;"' : '') + '>' +
+            '<div class="sale-item-info"><div class="sale-item-name">' + despachoIcon + ' ' + item.name + '</div>' +
+            '<div class="sale-item-price">S/ ' + item.price.toFixed(2) + ' x ' + item.quantity + '</div></div>' +
             '<div class="sale-item-actions"><button class="qty-btn qty-minus" onclick="decreaseQty(' + item.id + ')">-</button>' +
             '<span class="sale-item-qty">' + item.quantity + '</span><button class="qty-btn qty-plus" onclick="increaseQty(' + item.id + ')">+</button>' +
             '<i class="fas fa-times remove-item" onclick="removeItem(' + item.id + ')"></i></div></div>';
@@ -933,20 +939,33 @@ function afterSaleSuccess(invoiceId) {
 // === DESPACHO ===
 function printDespacho() {
     var sale = activeSale();
-    if (sale.items.length === 0) { showError('No hay productos para imprimir'); return; }
+    var itemsParaImprimir = sale.items.filter(function(i) { return !i.despacho_printed; });
+    if (itemsParaImprimir.length === 0) { showError('Todos los productos ya fueron enviados a despacho'); return; }
     var btn = document.getElementById('btnDespacho');
     btn.disabled = true;
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Imprimiendo...';
     fetch('/pos/print-despacho', {
         method: 'POST', headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content, 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
-        body: JSON.stringify({ items_json: JSON.stringify(sale.items) })
+        body: JSON.stringify({ items_json: JSON.stringify(itemsParaImprimir) })
     }).then(function(res) { return res.json(); }).then(function(data) {
         if (data.success) {
-            btn.innerHTML = '<i class="fas fa-check"></i> Impreso!';
+            var now = new Date().toLocaleTimeString();
+            itemsParaImprimir.forEach(function(i) { i.despacho_printed = true; i.despacho_hora = now; });
+            saveState();
+            renderSaleItems();
+            btn.innerHTML = '<i class="fas fa-check"></i> ' + itemsParaImprimir.length + ' enviado' + (itemsParaImprimir.length > 1 ? 's' : '') + '!';
             btn.style.background = 'linear-gradient(135deg, #28a745, #20c997)';
-            setTimeout(function() { btn.innerHTML = '<i class="fas fa-print"></i> Imprimir Despacho'; btn.style.background = 'linear-gradient(135deg, #ff8f00, #ff6d00)'; btn.disabled = false; }, 2000);
-        } else { showError(data.message || 'Error al imprimir'); btn.innerHTML = '<i class="fas fa-print"></i> Imprimir Despacho'; btn.disabled = false; }
-    }).catch(function(err) { showError('Error: ' + err); btn.innerHTML = '<i class="fas fa-print"></i> Imprimir Despacho'; btn.disabled = false; });
+            setTimeout(function() { btn.innerHTML = '<i class="fas fa-print"></i> Imprimir Despacho'; btn.style.background = 'linear-gradient(135deg, #ff8f00, #ff6d00)'; btn.disabled = false; }, 2500);
+        } else {
+            showError(data.message || 'Error al imprimir');
+            btn.innerHTML = '<i class="fas fa-print"></i> Imprimir Despacho';
+            btn.disabled = false;
+        }
+    }).catch(function(err) {
+        showError('Error: ' + err);
+        btn.innerHTML = '<i class="fas fa-print"></i> Imprimir Despacho';
+        btn.disabled = false;
+    });
 }
 
 // === MODALS & UTILS ===
