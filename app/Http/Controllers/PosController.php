@@ -48,7 +48,9 @@ class PosController extends Controller
             ->whereIn('tipo_documento', ['01', '03', 'NV'])
             ->get();
         
-        return view('pos.index', compact('categories', 'products', 'customers', 'series', 'cajaAbierta', 'mainCompany'));
+        $allowSellWithoutStock = $mainCompany->allow_sell_without_stock ?? false;
+
+        return view('pos.index', compact('categories', 'products', 'customers', 'series', 'cajaAbierta', 'mainCompany', 'allowSellWithoutStock'));
     }
     
     public function store(Request $request)
@@ -115,7 +117,30 @@ class PosController extends Controller
         }
         
         $total = $subtotal + $igv;
-        
+
+        $paymentsJson = $request->payments_json;
+        $payments = $paymentsJson ? json_decode($paymentsJson, true) : [];
+        $metodoPago = 'EFECTIVO';
+        $referenciaPago = null;
+
+        if (!empty($payments)) {
+            $parts = [];
+            foreach ($payments as $p) {
+                $method = $p['method'] ?? 'EFECTIVO';
+                $amount = $p['amount'] ?? 0;
+                $parts[] = $method . '/' . number_format($amount, 2);
+            }
+            $metodoPago = implode(' + ', $parts);
+
+            $refs = [];
+            foreach ($payments as $p) {
+                if (!empty($p['reference'])) {
+                    $refs[] = ($p['method'] ?? '') . ': ' . $p['reference'];
+                }
+            }
+            $referenciaPago = !empty($refs) ? implode(' | ', $refs) : null;
+        }
+
         $invoice = \App\Models\Invoice::create([
             'company_id' => $companyId,
             'customer_id' => $customerId,
@@ -132,8 +157,8 @@ class PosController extends Controller
             'total' => $total,
             'subtotal' => $subtotal,
             'total_letras' => strtoupper($this->numberToLetter($total)) . ' SOLES',
-            'metodo_pago' => $request->payment_method ?? 'EFECTIVO',
-            'referencia_pago' => $request->reference ?? null,
+            'metodo_pago' => $metodoPago,
+            'referencia_pago' => $referenciaPago,
             'sunat_estado' => 'PENDIENTE',
             'estado' => 'ACTIVO',
         ]);
@@ -281,5 +306,41 @@ class PosController extends Controller
             'port' => $printer->port,
             'type' => $printer->type,
         ]);
+    }
+
+    public function printDespacho(Request $request)
+    {
+        $items = json_decode($request->items_json, true);
+
+        if (empty($items)) {
+            return response()->json(['success' => false, 'message' => 'No hay productos para imprimir']);
+        }
+
+        try {
+            $printer = \App\Models\Printer::where('assigned_to', 'autopedido')->where('active', true)->first();
+            if (!$printer) {
+                return response()->json(['success' => false, 'message' => 'No hay impresora de despacho configurada (slot autopedido)']);
+            }
+
+            $text = \App\Services\PlainTextTicket::despachoTicket($items);
+            $printService = app(\App\Services\PrintService::class);
+
+            \App\Models\PrintJob::create([
+                'printer_name' => $printer->printer_name,
+                'printer_ip' => $printer->ip_address,
+                'printer_port' => $printer->port,
+                'type' => $printer->type,
+                'job_type' => 'despacho',
+                'data' => base64_encode($text),
+                'status' => 'pending',
+            ]);
+
+            $printService->processQueue();
+
+            return response()->json(['success' => true, 'message' => 'Comanda de despacho enviada a impresion']);
+        } catch (\Exception $e) {
+            \Log::error('Despacho print error: ' . $e->getMessage());
+            return response()->json(['success' => false, 'message' => 'Error: ' . $e->getMessage()]);
+        }
     }
 }
