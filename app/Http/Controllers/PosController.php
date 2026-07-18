@@ -50,7 +50,11 @@ class PosController extends Controller
         
         $allowSellWithoutStock = $mainCompany->allow_sell_without_stock ?? false;
 
-        return view('pos.index', compact('categories', 'products', 'customers', 'series', 'cajaAbierta', 'mainCompany', 'allowSellWithoutStock'));
+        $defaultCustomer = Customer::where('company_id', $companyId)
+            ->where('documento_numero', '88888888')
+            ->first();
+
+        return view('pos.index', compact('categories', 'products', 'customers', 'series', 'cajaAbierta', 'mainCompany', 'allowSellWithoutStock', 'defaultCustomer'));
     }
     
     public function store(Request $request)
@@ -220,8 +224,12 @@ class PosController extends Controller
     public function success($id)
     {
         $invoice = \App\Models\Invoice::with(['company', 'customer', 'items.product'])->findOrFail($id);
-        
-        return view('pos.success', compact('invoice'))->with('invoiceId', $invoice->id);
+        $mainCompany = \App\Models\Company::getMainCompany();
+        $defaultCustomer = \App\Models\Customer::where('company_id', $mainCompany->id)
+            ->where('documento_numero', '88888888')
+            ->first();
+
+        return view('pos.success', compact('invoice', 'defaultCustomer'))->with('invoiceId', $invoice->id);
     }
     
     public function sendToSunat($id)

@@ -539,8 +539,10 @@ const seriesData = @json($series);
 var appState = loadState();
 
 function defaultState() {
+    var defaultCustomerId = {{ $defaultCustomer->id ?? 'null' }};
+    var defaultCustomerName = @json($defaultCustomer->nombre ?? '');
     return {
-        sales: [{ id: 1, label: 'V-1', customer_id: null, customer_name: '', document_type: '03', payments: [{ method: 'EFECTIVO', amount: 0, reference: '' }], items: [] }],
+        sales: [{ id: 1, label: 'V-1', customer_id: defaultCustomerId, customer_name: defaultCustomerName, document_type: '03', payments: [{ method: 'EFECTIVO', amount: 0, reference: '' }], items: [] }],
         activeId: 1,
         nextId: 2
     };
@@ -588,8 +590,8 @@ function addTab() {
     var newSale = {
         id: appState.nextId,
         label: 'V-' + today.getFullYear().toString().slice(-2) + ('0' + (today.getMonth() + 1)).slice(-2) + ('0' + today.getDate()).slice(-2) + '-' + ('000' + (max + 1)).slice(-4),
-        customer_id: null,
-        customer_name: '',
+        customer_id: {{ $defaultCustomer->id ?? 'null' }},
+        customer_name: @json($defaultCustomer->nombre ?? ''),
         document_type: '03',
         payments: [{ method: 'EFECTIVO', amount: 0, reference: '' }],
         items: []
@@ -925,7 +927,7 @@ function afterSaleSuccess(invoiceId) {
     if (appState.sales.length === 0) {
         var today = new Date();
         var ds = today.getFullYear().toString().slice(-2) + ('0' + (today.getMonth() + 1)).slice(-2) + ('0' + today.getDate()).slice(-2);
-        appState.sales.push({ id: appState.nextId, label: 'V-' + ds + '-0001', customer_id: null, customer_name: '', document_type: '03', payments: [{ method: 'EFECTIVO', amount: 0, reference: '' }], items: [] });
+        appState.sales.push({ id: appState.nextId, label: 'V-' + ds + '-0001', customer_id: {{ $defaultCustomer->id ?? 'null' }}, customer_name: @json($defaultCustomer->nombre ?? ''), document_type: '03', payments: [{ method: 'EFECTIVO', amount: 0, reference: '' }], items: [] });
         appState.activeId = appState.nextId;
         appState.nextId++;
     } else {

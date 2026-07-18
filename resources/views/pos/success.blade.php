@@ -167,7 +167,9 @@
                 if (state.sales.length === 0) {
                     var today = new Date();
                     var ds = today.getFullYear().toString().slice(-2) + ('0' + (today.getMonth() + 1)).slice(-2) + ('0' + today.getDate()).slice(-2);
-                    state.sales.push({ id: state.nextId, label: 'V-' + ds + '-0001', customer_id: null, customer_name: '', document_type: '03', payments: [{ method: 'EFECTIVO', amount: 0, reference: '' }], items: [] });
+                    var dcId = {{ $defaultCustomer->id ?? 'null' }};
+                    var dcName = @json($defaultCustomer->nombre ?? '');
+                    state.sales.push({ id: state.nextId, label: 'V-' + ds + '-0001', customer_id: dcId, customer_name: dcName, document_type: '03', payments: [{ method: 'EFECTIVO', amount: 0, reference: '' }], items: [] });
                     state.activeId = state.nextId;
                     state.nextId++;
                 } else {
